@@ -1,7 +1,6 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { signOut, useSession } from "next-auth/react";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, Building2, MapPin, Users, ClipboardList,
@@ -12,7 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { UserRole } from "@/types";
 import { getRoleColor } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const NAV_CONFIG: Record<string, { label: string; icon: React.ElementType; href: string; badge?: string }[]> = {
   SUPER_ADMIN: [
@@ -91,14 +90,46 @@ const NAV_CONFIG: Record<string, { label: string; icon: React.ElementType; href:
   ],
 };
 
+interface SessionUser {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  employeeId: string;
+  avatar?: string;
+}
+
 export default function Sidebar() {
-  const { data: session } = useSession();
   const pathname = usePathname();
+  const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
-  const role = (session?.user as any)?.role as UserRole;
+  const [user, setUser] = useState<SessionUser | null>(null);
+
+  // Fetch session from our custom endpoint instead of using broken useSession()
+  useEffect(() => {
+    fetch("/api/auth/custom-session")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.user) setUser(data.user);
+      })
+      .catch(console.error);
+  }, []);
+
+  const role = user?.role as UserRole;
   const navItems = NAV_CONFIG[role] || [];
-  const userName = session?.user?.name || "User";
+  const userName = user?.name || "User";
   const userInitials = userName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
+
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/custom-logout", { method: "POST" });
+      router.push("/login");
+      router.refresh();
+    } catch {
+      // Even if the request fails, try to redirect
+      router.push("/login");
+    }
+  };
 
   return (
     <aside className={cn("flex flex-col h-screen bg-sidebar border-r border-sidebar-border transition-all duration-300 sticky top-0", collapsed ? "w-16" : "w-64")}>
@@ -144,20 +175,20 @@ export default function Sidebar() {
         {!collapsed ? (
           <div className="flex items-center gap-3">
             <Avatar className="w-8 h-8">
-              <AvatarImage src={(session?.user as any)?.avatar} />
+              <AvatarImage src={user?.avatar} />
               <AvatarFallback className="text-xs bg-brand-700 text-white">{userInitials}</AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold text-sidebar-foreground truncate">{userName}</p>
               <p className={cn("text-xs px-1.5 py-0.5 rounded-full inline-block mt-0.5", getRoleColor(role))}>{role?.replace("_", " ")}</p>
             </div>
-            <button onClick={() => signOut({ callbackUrl: "/login" })}
+            <button onClick={handleLogout}
               className="text-sidebar-foreground/50 hover:text-rose-400 transition-colors">
               <LogOut className="w-4 h-4" />
             </button>
           </div>
         ) : (
-          <button onClick={() => signOut({ callbackUrl: "/login" })}
+          <button onClick={handleLogout}
             className="w-full flex justify-center text-sidebar-foreground/50 hover:text-rose-400 transition-colors p-1">
             <LogOut className="w-4 h-4" />
           </button>

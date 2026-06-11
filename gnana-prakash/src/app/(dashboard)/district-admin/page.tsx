@@ -1,6 +1,5 @@
 import { Metadata } from "next";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth/options";
+import { getCustomSession } from "@/lib/auth/session";
 import TopBar from "@/components/shared/TopBar";
 import StatCard from "@/components/dashboard/StatCard";
 import { GraduationCap, Users, Building2, Image, BarChart3, CheckCircle } from "lucide-react";
@@ -13,7 +12,7 @@ import Photo from "@/models/Photo";
 export const metadata: Metadata = { title: "District Admin Dashboard" };
 
 export default async function DistrictAdminDashboard() {
-  const session = await getServerSession(authOptions);
+  const session = await getCustomSession();
   const districtId = (session?.user as any)?.district;
   await connectDB();
   const query = districtId ? { district: districtId } : {};

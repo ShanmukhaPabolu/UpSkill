@@ -1,6 +1,5 @@
 "use server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth/options";
+import { getCustomSession } from "@/lib/auth/session";
 import connectDB from "@/lib/db/mongoose";
 import Program from "@/models/Program";
 import AuditLog from "@/models/AuditLog";
@@ -8,7 +7,7 @@ import { revalidatePath } from "next/cache";
 import { programSchema } from "@/lib/validations";
 
 export async function createProgram(formData: FormData) {
-  const session = await getServerSession(authOptions);
+  const session = await getCustomSession();
   if (!session) throw new Error("Unauthorized");
 
   const rawData = Object.fromEntries(formData);
@@ -44,7 +43,7 @@ export async function createProgram(formData: FormData) {
 }
 
 export async function updateProgramStatus(id: string, status: string) {
-  const session = await getServerSession(authOptions);
+  const session = await getCustomSession();
   if (!session) throw new Error("Unauthorized");
   await connectDB();
   await Program.findByIdAndUpdate(id, { status });

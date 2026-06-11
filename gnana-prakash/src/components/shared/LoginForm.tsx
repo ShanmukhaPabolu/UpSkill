@@ -1,13 +1,12 @@
 "use client";
 import { useState } from "react";
-import { signIn, getSession } from "next-auth/react";
 import { DASHBOARD_ROUTES } from "@/lib/auth/rbac";
 import { UserRole } from "@/types";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { loginSchema, LoginInput } from "@/lib/validations";
-import { Eye, EyeOff, GraduationCap, Loader2, ShieldCheck } from "lucide-react";
+import { Eye, EyeOff, GraduationCap, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,20 +25,32 @@ export default function LoginForm() {
     setLoading(true);
     setError("");
     try {
-      const res = await signIn("credentials", { ...data, redirect: false });
-      if (res?.error) {
-        setError("Invalid credentials. Please check your email and password.");
-      } else {
-        const session = await getSession();
-        if (session && session.user && (session.user as any).role) {
-          const role = (session.user as any).role as UserRole;
-          const dashboardUrl = DASHBOARD_ROUTES[role] || "/";
-          router.push(dashboardUrl);
-        } else {
-          router.push("/");
-        }
-        router.refresh();
+      // Use custom login API — bypasses NextAuth's broken signIn() on Next.js 16
+      const res = await fetch("/api/auth/custom-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      const result = await res.json();
+
+      if (!res.ok || result.error) {
+        setError(result.error || "Invalid credentials. Please check your email and password.");
+        return;
       }
+
+      // Login successful — the cookie is already set by the server
+      if (result.user?.role) {
+        const role = result.user.role as UserRole;
+        const dashboardUrl = DASHBOARD_ROUTES[role] || "/";
+        router.push(dashboardUrl);
+      } else {
+        router.push("/");
+      }
+      router.refresh();
+    } catch (err) {
+      console.error("Login error:", err);
+      setError("Network error. Please check your connection and try again.");
     } finally {
       setLoading(false);
     }

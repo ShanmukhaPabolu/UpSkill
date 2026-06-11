@@ -1,6 +1,5 @@
 import { Metadata } from "next";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth/options";
+import { getCustomSession } from "@/lib/auth/session";
 import connectDB from "@/lib/db/mongoose";
 import Program from "@/models/Program";
 import Venue from "@/models/Venue";
@@ -36,7 +35,7 @@ async function getDashboardStats() {
 }
 
 export default async function SuperAdminDashboard() {
-  const session = await getServerSession(authOptions);
+  const session = await getCustomSession();
   const stats = await getDashboardStats();
 
   return (

@@ -1,6 +1,5 @@
 import { Metadata } from "next";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth/options";
+import { getCustomSession } from "@/lib/auth/session";
 import TopBar from "@/components/shared/TopBar";
 import StatCard from "@/components/dashboard/StatCard";
 import { GraduationCap, ClipboardList, Award, Bell } from "lucide-react";
@@ -8,7 +7,7 @@ import { GraduationCap, ClipboardList, Award, Bell } from "lucide-react";
 export const metadata: Metadata = { title: "Teacher Dashboard" };
 
 export default async function TeacherDashboard() {
-  const session = await getServerSession(authOptions);
+  const session = await getCustomSession();
   return (
     <div className="flex flex-col min-h-full">
       <TopBar title={`Welcome, ${session?.user?.name?.split(" ")[0]}`} subtitle="Your training portal" />

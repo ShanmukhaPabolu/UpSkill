@@ -1,6 +1,5 @@
 import { Metadata } from "next";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth/options";
+import { getCustomSession } from "@/lib/auth/session";
 import TopBar from "@/components/shared/TopBar";
 import StatCard from "@/components/dashboard/StatCard";
 import { GraduationCap, ClipboardList, Award, Bell } from "lucide-react";
@@ -13,7 +12,7 @@ import Program from "@/models/Program";
 export const metadata: Metadata = { title: "Student Dashboard" };
 
 export default async function StudentDashboard() {
-  const session = await getServerSession(authOptions);
+  const session = await getCustomSession();
   
   await connectDB();
   const userEmail = session?.user?.email;

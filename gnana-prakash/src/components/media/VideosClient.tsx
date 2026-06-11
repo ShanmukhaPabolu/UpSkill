@@ -1,17 +1,21 @@
 "use client";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDropzone } from "react-dropzone";
 import { Upload, Video, Loader2, Check, X, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useSession } from "next-auth/react";
 import { formatDate, formatFileSize, VIDEO_CATEGORIES } from "@/lib/utils";
 
+interface SessionUser { role: string; [key: string]: any; }
+
 export default function VideosClient() {
-  const { data: session } = useSession();
-  const role = (session?.user as any)?.role;
+  const [user, setUser] = useState<SessionUser | null>(null);
+  useEffect(() => {
+    fetch("/api/auth/custom-session").then(r => r.json()).then(d => { if (d.user) setUser(d.user); }).catch(console.error);
+  }, []);
+  const role = user?.role;
   const [status, setStatus] = useState("");
   const [page, setPage] = useState(1);
   const [uploadData, setUploadData] = useState({ program: "", title: "", category: "VENUE_TOUR" });
@@ -118,7 +122,7 @@ export default function VideosClient() {
                   <span>{formatFileSize(video.size || 0)}</span>
                 </div>
                 <p className="text-xs text-muted-foreground">{formatDate(video.uploadDate)}</p>
-                {["SUPER_ADMIN","DISTRICT_ADMIN"].includes(role) && video.status === "PENDING" && (
+                {role && ["SUPER_ADMIN","DISTRICT_ADMIN"].includes(role) && video.status === "PENDING" && (
                   <div className="flex gap-2 pt-1">
                     <Button size="sm" variant="success" className="flex-1 gap-1 h-7 text-xs" onClick={() => approve(video._id, "approve")}>
                       <Check className="w-3 h-3" /> Approve

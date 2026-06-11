@@ -1,5 +1,5 @@
 "use client";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useDropzone } from "react-dropzone";
 import { Upload, Image as ImageIcon, Check, X, Loader2, Eye, Filter } from "lucide-react";
@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useSession } from "next-auth/react";
 import { formatDate, PHOTO_CATEGORIES } from "@/lib/utils";
+
+interface SessionUser { role: string; [key: string]: any; }
 
 async function fetchPhotos(params: Record<string, string>) {
   const qs = new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([, v]) => v))).toString();
@@ -17,8 +18,11 @@ async function fetchPhotos(params: Record<string, string>) {
 }
 
 export default function PhotosClient() {
-  const { data: session } = useSession();
-  const role = (session?.user as any)?.role;
+  const [user, setUser] = useState<SessionUser | null>(null);
+  useEffect(() => {
+    fetch("/api/auth/custom-session").then(r => r.json()).then(d => { if (d.user) setUser(d.user); }).catch(console.error);
+  }, []);
+  const role = user?.role;
   const [status, setStatus] = useState("");
   const [category, setCategory] = useState("");
   const [page, setPage] = useState(1);
@@ -132,7 +136,7 @@ export default function PhotosClient() {
                   <button onClick={() => setSelectedPhoto(photo)} className="p-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white">
                     <Eye className="w-4 h-4" />
                   </button>
-                  {["SUPER_ADMIN","DISTRICT_ADMIN"].includes(role) && photo.status === "PENDING" && (
+                  {role && ["SUPER_ADMIN","DISTRICT_ADMIN"].includes(role) && photo.status === "PENDING" && (
                     <>
                       <button onClick={() => approveMutation.mutate({ id: photo._id, action: "approve" })}
                         className="p-1.5 rounded-lg bg-emerald-500/80 hover:bg-emerald-500 text-white">

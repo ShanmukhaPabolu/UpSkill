@@ -1,6 +1,5 @@
 "use server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth/options";
+import { getCustomSession } from "@/lib/auth/session";
 import connectDB from "@/lib/db/mongoose";
 import Photo from "@/models/Photo";
 import Video from "@/models/Video";
@@ -8,7 +7,7 @@ import AuditLog from "@/models/AuditLog";
 import { revalidatePath } from "next/cache";
 
 export async function approveMedia(id: string, type: "photo" | "video", action: "approve" | "reject", remarks?: string) {
-  const session = await getServerSession(authOptions);
+  const session = await getCustomSession();
   if (!session) throw new Error("Unauthorized");
   const role = (session.user as any).role;
   if (!["SUPER_ADMIN","DISTRICT_ADMIN"].includes(role)) throw new Error("Forbidden");
