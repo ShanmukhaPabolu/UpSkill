@@ -12,7 +12,7 @@ import {
   Users, MapPin, CheckCircle, Clock, Bell, Download, 
   ChevronRight, BookOpen, GraduationCap, ShieldCheck, 
   ArrowUpRight, Landmark, Activity, Map, Search, FileText,
-  Phone, Mail, Globe, MonitorPlay, BarChart3
+  Phone, Mail, Globe, MonitorPlay, BarChart3, Trophy, Headset, Star
 } from "lucide-react";
 
 const districtData = [
@@ -308,6 +308,78 @@ export default function PortalHomepage({ dashboardUrl, isAuth }: { dashboardUrl:
             </div>
 
           </div>
+        </div>
+
+        {/* Extended Data Section: Venues & Support */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pt-4">
+          
+          {/* Top Performing Venues */}
+          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2"><Trophy className="w-5 h-5 text-amber-500" /> Top Performing Venues</h3>
+                <p className="text-sm text-slate-500">Based on attendance & module completion</p>
+              </div>
+              <button className="text-sm font-bold text-[#00418C] hover:underline flex items-center gap-1">View All <ChevronRight className="w-4 h-4" /></button>
+            </div>
+            <div className="space-y-4">
+              {[
+                { name: "ZPHS Boys, Vizianagaram", admin: "KRP: Srinivas R.", score: "99.8%", trend: "up" },
+                { name: "Govt High School, Krishna", admin: "KRP: Lakshmi P.", score: "99.5%", trend: "up" },
+                { name: "AP Model School, Guntur", admin: "KRP: Venkat S.", score: "98.9%", trend: "flat" },
+                { name: "Municipal HS, Srikakulam", admin: "KRP: Ramesh K.", score: "98.2%", trend: "up" },
+              ].map((venue, idx) => (
+                <div key={idx} className="flex items-center justify-between p-3 border border-slate-100 rounded-lg hover:bg-slate-50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-amber-50 text-amber-600 font-bold flex items-center justify-center text-xs">
+                      #{idx + 1}
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-slate-800">{venue.name}</p>
+                      <p className="text-xs text-slate-500">{venue.admin}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-emerald-600">{venue.score}</p>
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wide">Completion</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Helpdesk & Support SLA */}
+          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2"><Headset className="w-5 h-5 text-[#00418C]" /> Live Support Desk</h3>
+                <p className="text-sm text-slate-500">State technical helpdesk resolution metrics</p>
+              </div>
+              <span className="bg-emerald-100 text-emerald-700 text-xs font-bold px-2 py-1 rounded">SLA: Green</span>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 text-center">
+                <p className="text-3xl font-black text-[#00418C]">412</p>
+                <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mt-1">Tickets Resolved</p>
+              </div>
+              <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 text-center">
+                <p className="text-3xl font-black text-amber-600">14</p>
+                <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mt-1">Pending Sync</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <h4 className="text-sm font-bold text-slate-800">Common Resolution Tags Today</h4>
+              <div className="flex flex-wrap gap-2">
+                <span className="text-xs border border-slate-200 bg-white px-3 py-1.5 rounded-full text-slate-600">Biometric Timeout (45%)</span>
+                <span className="text-xs border border-slate-200 bg-white px-3 py-1.5 rounded-full text-slate-600">Password Reset (30%)</span>
+                <span className="text-xs border border-slate-200 bg-white px-3 py-1.5 rounded-full text-slate-600">Module Access (15%)</span>
+                <span className="text-xs border border-slate-200 bg-white px-3 py-1.5 rounded-full text-slate-600">Other (10%)</span>
+              </div>
+            </div>
+          </div>
+          
         </div>
       </main>
 
