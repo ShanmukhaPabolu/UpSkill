@@ -1,0 +1,12 @@
+import { Metadata } from "next";
+import TopBar from "@/components/shared/TopBar";
+import AnalyticsClient from "@/components/reports/AnalyticsClient";
+export const metadata: Metadata = { title: "Analytics" };
+export default function AnalyticsPage() {
+  return (
+    <div className="flex flex-col min-h-full">
+      <TopBar title="Analytics" subtitle="System-wide data insights" />
+      <div className="p-6"><AnalyticsClient /></div>
+    </div>
+  );
+}

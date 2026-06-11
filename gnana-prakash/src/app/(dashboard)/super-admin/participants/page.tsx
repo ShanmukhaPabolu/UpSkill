@@ -1,0 +1,12 @@
+import { Metadata } from "next";
+import TopBar from "@/components/shared/TopBar";
+import ParticipantsClient from "@/components/participants/ParticipantsClient";
+export const metadata: Metadata = { title: "Participants" };
+export default function ParticipantsPage() {
+  return (
+    <div className="flex flex-col min-h-full">
+      <TopBar title="Participants" subtitle="All registered participants" />
+      <div className="p-6"><ParticipantsClient /></div>
+    </div>
+  );
+}

@@ -1,0 +1,12 @@
+import { Metadata } from "next";
+import TopBar from "@/components/shared/TopBar";
+import FoodClient from "@/components/food/FoodClient";
+export const metadata: Metadata = { title: "Food Records" };
+export default function MandalFoodPage() {
+  return (
+    <div className="flex flex-col min-h-full">
+      <TopBar title="Food Records" subtitle="Track daily meals" />
+      <div className="p-6"><FoodClient /></div>
+    </div>
+  );
+}
