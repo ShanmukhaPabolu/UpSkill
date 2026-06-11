@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
-import { signIn } from "next-auth/react";
+import { signIn, getSession } from "next-auth/react";
+import { DASHBOARD_ROUTES } from "@/lib/auth/rbac";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -28,7 +29,14 @@ export default function LoginForm() {
       if (res?.error) {
         setError("Invalid credentials. Please check your email and password.");
       } else {
-        router.push("/");
+        const session = await getSession();
+        if (session && session.user && (session.user as any).role) {
+          const role = (session.user as any).role;
+          const dashboardUrl = DASHBOARD_ROUTES[role] || "/";
+          router.push(dashboardUrl);
+        } else {
+          router.push("/");
+        }
         router.refresh();
       }
     } finally {

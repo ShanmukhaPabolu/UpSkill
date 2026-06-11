@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { decode } from "next-auth/jwt";
 import { DASHBOARD_ROUTES } from "@/lib/auth/rbac";
@@ -9,6 +8,9 @@ export default async function HomePage() {
   const cookieStore = await cookies();
   const tokenCookie = cookieStore.get("next-auth.session-token") || cookieStore.get("__Secure-next-auth.session-token");
   
+  let dashboardUrl = "/login";
+  let isAuth = false;
+
   if (tokenCookie) {
     try {
       const token = await decode({ 
@@ -18,12 +20,13 @@ export default async function HomePage() {
       });
       if (token && token.role) {
          const role = token.role as UserRole;
-         redirect(DASHBOARD_ROUTES[role] || "/login");
+         dashboardUrl = DASHBOARD_ROUTES[role] || "/login";
+         isAuth = true;
       }
     } catch (error) {
       console.error("JWT Decode Error:", error);
     }
   }
 
-  return <PortalHomepage dashboardUrl="/login" isAuth={false} />;
+  return <PortalHomepage dashboardUrl={dashboardUrl} isAuth={isAuth} />;
 }
