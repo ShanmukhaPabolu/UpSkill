@@ -19,21 +19,42 @@ function walk(dir) {
 const files = walk('./src/app/api');
 let modifiedCount = 0;
 
-// Replace the complex two-line secureCookie pattern with a simple single getToken call
-const complexPattern = /let token = await getToken\(\{ req, secret: process\.env\.NEXTAUTH_SECRET, secureCookie: process\.env\.NODE_ENV === 'production' \|\| req\.url\.startsWith\('https:\/\/'\) \}\);\s*\n\s*if \(!token\) token = await getToken\(\{ req, secret: process\.env\.NEXTAUTH_SECRET, secureCookie: false \}\);/g;
-
-const simpleReplacement = `const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });`;
-
 files.forEach(file => {
   let content = fs.readFileSync(file, 'utf8');
-  if (complexPattern.test(content)) {
-    // Reset regex state
-    complexPattern.lastIndex = 0;
-    content = content.replace(complexPattern, simpleReplacement);
+  
+  // Skip auth routes (NextAuth handles its own auth)
+  if (file.includes('auth')) return;
+  
+  // Only process files that use getToken
+  if (!content.includes('getToken')) return;
+  
+  let changed = false;
+  
+  // 1. Replace the import
+  if (content.includes('import { getToken } from "next-auth/jwt";')) {
+    content = content.replace(
+      'import { getToken } from "next-auth/jwt";',
+      'import { getAuthToken } from "@/lib/auth/getAuthToken";'
+    );
+    changed = true;
+  }
+  
+  // 2. Replace all getToken calls with getAuthToken
+  // Pattern: const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  const pattern = /await getToken\(\{ req, secret: process\.env\.NEXTAUTH_SECRET \}\)/g;
+  if (pattern.test(content)) {
+    content = content.replace(
+      /await getToken\(\{ req, secret: process\.env\.NEXTAUTH_SECRET \}\)/g,
+      'await getAuthToken(req)'
+    );
+    changed = true;
+  }
+  
+  if (changed) {
     fs.writeFileSync(file, content);
     modifiedCount++;
-    console.log('Fixed: ' + path.relative('.', file));
+    console.log('Updated: ' + path.relative('.', file));
   }
 });
 
-console.log(`\nTotal fixed: ${modifiedCount} files.`);
+console.log('\nTotal updated: ' + modifiedCount + ' files.');
