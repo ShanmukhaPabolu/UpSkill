@@ -38,10 +38,10 @@ export default function RegisterForm() {
       });
       
       const data = await res.json();
-      
       if (!res.ok) {
         setError(data.error || "Registration failed.");
       } else {
+        (window as any)._isAutoApproved = data.isAutoApproved;
         setSuccess(true);
       }
     } catch (err) {
@@ -52,17 +52,20 @@ export default function RegisterForm() {
   };
 
   if (success) {
+    const isAuto = (window as any)._isAutoApproved;
     return (
-      <div className="bg-white rounded-3xl p-8 sm:p-10 shadow-2xl shadow-slate-200/50 border border-slate-100 text-center">
+      <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-2xl shadow-slate-200/50 border border-slate-100 text-center">
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-emerald-50 shadow-sm border border-emerald-100 mb-6">
           <ShieldCheck className="w-8 h-8 text-emerald-600" />
         </div>
-        <h2 className="text-2xl font-bold text-slate-900 mb-4">Registration Submitted!</h2>
+        <h2 className="text-2xl font-bold text-slate-900 mb-4">Registration Successful!</h2>
         <p className="text-slate-600 mb-8">
-          Your request has been securely routed to the Super Admin for approval. You will not be able to login until your account is activated.
+          {isAuto 
+            ? "You are the first user and have been granted Super Admin access! You can log in immediately."
+            : "Your request has been securely routed to the Super Admin for approval. You will not be able to login until your account is activated."}
         </p>
-        <Button onClick={() => router.push("/login")} className="w-full h-12 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl shadow-lg shadow-brand-600/30">
-          Return to Login
+        <Button onClick={() => router.push("/login")} className="w-full h-11 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl shadow-lg shadow-brand-600/30">
+          Proceed to Login
         </Button>
       </div>
     );
