@@ -30,6 +30,29 @@ async function connectDB(): Promise<typeof mongoose> {
     });
   }
   cached.conn = await cached.promise;
+
+  // Auto-seed permanent Super Admin account if it doesn't exist
+  try {
+    const User = (await import("@/models/User")).default;
+    const adminExists = await User.findOne({ email: "admin@gnana.edu.in" });
+    if (!adminExists) {
+      await User.create({
+        employeeId: "EMP001",
+        name: "System Administrator",
+        email: "admin@gnana.edu.in",
+        password: "Admin@1234",
+        mobile: "9000000001",
+        role: "SUPER_ADMIN",
+        designation: "System Administrator",
+        department: "School Education",
+        isActive: true,
+      });
+      console.log("✅ Auto-seeded permanent Super Admin account.");
+    }
+  } catch (e) {
+    console.error("Auto-seed Super Admin error:", e);
+  }
+
   return cached.conn;
 }
 

@@ -14,36 +14,24 @@ export async function POST(req: Request) {
 
     const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
-      return NextResponse.json({ error: "Email is already registered." }, { status: 400 });
-    }
-
-    // Check if this is the very first user in the database
-    const userCount = await User.countDocuments();
-    const isFirstUser = userCount === 0;
-
     // Generate a temporary employeeId since it's required by the schema
     const employeeId = `REG-${Date.now().toString().slice(-6)}`;
 
-    // Create the user. First user gets auto-approved as Super Admin.
+    // Create the user but mark them as inactive.
+    // They will need Super Admin approval to login.
     const newUser = new User({
       name,
       email,
       mobile,
-      role: isFirstUser ? "SUPER_ADMIN" : role,
+      role,
       password,
       employeeId,
-      isActive: isFirstUser ? true : false,
+      isActive: false, // Critical: Requires approval
     });
 
     await newUser.save();
 
-    return NextResponse.json({ 
-      success: true, 
-      message: isFirstUser 
-        ? "First user registered successfully as Super Admin." 
-        : "Registration successful. Pending admin approval.",
-      isAutoApproved: isFirstUser
-    }, { status: 201 });
+    return NextResponse.json({ success: true, message: "Registration successful. Pending admin approval." }, { status: 201 });
 
   } catch (error: any) {
     console.error("Registration Error:", error);
