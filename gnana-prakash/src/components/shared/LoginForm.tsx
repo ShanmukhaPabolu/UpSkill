@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { signIn, getSession } from "next-auth/react";
 import { DASHBOARD_ROUTES } from "@/lib/auth/rbac";
+import { UserRole } from "@/types";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -31,7 +32,7 @@ export default function LoginForm() {
       } else {
         const session = await getSession();
         if (session && session.user && (session.user as any).role) {
-          const role = (session.user as any).role;
+          const role = (session.user as any).role as UserRole;
           const dashboardUrl = DASHBOARD_ROUTES[role] || "/";
           router.push(dashboardUrl);
         } else {
