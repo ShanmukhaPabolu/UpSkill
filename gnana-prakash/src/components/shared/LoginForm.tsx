@@ -37,23 +37,23 @@ export default function LoginForm() {
   };
 
   return (
-    <div className="bg-white rounded-3xl p-8 sm:p-10 shadow-2xl shadow-slate-200/50 border border-slate-100">
-      <div className="text-center mb-10">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-brand-50 shadow-sm border border-brand-100 mb-6">
-          <GraduationCap className="w-8 h-8 text-brand-600" />
+    <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-2xl shadow-slate-200/50 border border-slate-100 w-full">
+      <div className="text-center mb-6">
+        <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-brand-50 shadow-sm border border-brand-100 mb-4">
+          <GraduationCap className="w-6 h-6 text-brand-600" />
         </div>
-        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Welcome Back</h1>
-        <p className="text-slate-500 text-sm mt-2">Sign in to your official portal</p>
+        <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Welcome Back</h1>
+        <p className="text-slate-500 text-sm mt-1">Sign in to your official portal</p>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         {error && (
           <div className="bg-rose-500/10 border border-rose-500/30 rounded-lg p-3 text-rose-400 text-sm">{error}</div>
         )}
         <div className="space-y-2">
           <Label htmlFor="email" className="text-slate-700 text-sm font-semibold">Official Email</Label>
           <Input id="email" type="email" placeholder="your.name@gnana.edu.in" autoComplete="email"
-            className="bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-brand-500 focus:ring-brand-500 h-12 transition-all duration-200"
+            className="bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-brand-500 focus:ring-brand-500 h-11 transition-all duration-200"
             {...register("email")} />
           {errors.email && <p className="text-rose-500 text-xs mt-1">{errors.email.message}</p>}
         </div>
@@ -62,7 +62,7 @@ export default function LoginForm() {
           <div className="relative">
             <Input id="password" type={showPwd ? "text" : "password"} placeholder="Enter your password"
               autoComplete="current-password"
-              className="bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-brand-500 focus:ring-brand-500 h-12 pr-12 transition-all duration-200"
+              className="bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-brand-500 focus:ring-brand-500 h-11 pr-12 transition-all duration-200"
               {...register("password")} />
             <button type="button" className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
               onClick={() => setShowPwd(!showPwd)}>
@@ -72,7 +72,7 @@ export default function LoginForm() {
           {errors.password && <p className="text-rose-500 text-xs mt-1">{errors.password.message}</p>}
         </div>
         <Button type="submit" disabled={loading}
-          className="w-full h-12 bg-brand-600 hover:bg-brand-700 text-white font-bold tracking-wide rounded-xl shadow-lg shadow-brand-600/30 transition-all active:scale-[0.98]">
+          className="w-full h-11 bg-brand-600 hover:bg-brand-700 text-white font-bold tracking-wide rounded-xl shadow-lg shadow-brand-600/30 transition-all active:scale-[0.98]">
           {loading ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Signing in...</> : "Sign In Securely"}
         </Button>
       </form>
