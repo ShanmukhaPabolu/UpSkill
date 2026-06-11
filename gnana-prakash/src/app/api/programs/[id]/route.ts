@@ -7,7 +7,8 @@ import AuditLog from "@/models/AuditLog";
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   try {
-    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    let token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET, secureCookie: process.env.NODE_ENV === 'production' || req.url.startsWith('https://') });
+    if (!token) token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET, secureCookie: false });
     const session = token ? { user: token } : null;
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     await connectDB();
@@ -22,7 +23,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   try {
-    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    let token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET, secureCookie: process.env.NODE_ENV === 'production' || req.url.startsWith('https://') });
+    if (!token) token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET, secureCookie: false });
     const session = token ? { user: token } : null;
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const body = await req.json();
@@ -39,7 +41,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   try {
-    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    let token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET, secureCookie: process.env.NODE_ENV === 'production' || req.url.startsWith('https://') });
+    if (!token) token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET, secureCookie: false });
     const session = token ? { user: token } : null;
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const role = (session.user as any).role;

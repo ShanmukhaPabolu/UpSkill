@@ -6,7 +6,8 @@ import Video from "@/models/Video";
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   try {
-    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    let token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET, secureCookie: process.env.NODE_ENV === 'production' || req.url.startsWith('https://') });
+    if (!token) token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET, secureCookie: false });
     const session = token ? { user: token } : null;
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     if (!["SUPER_ADMIN","DISTRICT_ADMIN"].includes((session.user as any).role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
