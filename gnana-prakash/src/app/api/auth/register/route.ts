@@ -14,6 +14,9 @@ export async function POST(req: Request) {
 
     const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
+      return NextResponse.json({ error: "Email is already registered." }, { status: 400 });
+    }
+
     // Generate a temporary employeeId since it's required by the schema
     const employeeId = `REG-${Date.now().toString().slice(-6)}`;
 
