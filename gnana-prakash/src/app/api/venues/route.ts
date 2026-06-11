@@ -27,9 +27,9 @@ export async function GET(req: NextRequest) {
       Venue.countDocuments(query),
     ]);
     return NextResponse.json({ data, total, page, limit, totalPages: Math.ceil(total / limit) });
-  } catch (error) {
+  } catch (error: any) {
     console.error("[GET Venues Error]", error);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    return NextResponse.json({ error: error.message || "Server error", stack: error.stack }, { status: 500 });
   }
 }
 
@@ -44,7 +44,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const venue = await Venue.create(body);
     return NextResponse.json(venue, { status: 201 });
-  } catch {
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+  } catch (error: any) {
+    console.error("[POST Venues Error]", error);
+    return NextResponse.json({ error: error.message || "Server error", stack: error.stack }, { status: 500 });
   }
 }
