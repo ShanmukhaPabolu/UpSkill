@@ -1,21 +1,26 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getToken } from "next-auth/jwt";
+import { decode } from "next-auth/jwt";
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Use getToken directly. Explicitly tell NextAuth to check for secure cookies in production
-  // or if the request is HTTPS, to bypass the Vercel Edge hostname resolution bug.
-  let token = await getToken({ 
-    req, 
-    secret: process.env.NEXTAUTH_SECRET,
-    secureCookie: process.env.NODE_ENV === "production" || req.url.startsWith("https://")
-  });
+  // Manually read cookies - bypasses getToken's broken bracket-access on Next.js 16
+  const secureCookie = req.cookies.get("__Secure-next-auth.session-token");
+  const normalCookie = req.cookies.get("next-auth.session-token");
+  const tokenCookie = secureCookie || normalCookie;
 
-  // Fallback: If token is still null, try without secureCookie just in case it's a local production build without HTTPS
-  if (!token) {
-    token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET, secureCookie: false });
+  let token = null;
+  if (tokenCookie?.value) {
+    try {
+      token = await decode({
+        token: tokenCookie.value,
+        secret: process.env.NEXTAUTH_SECRET!,
+        salt: tokenCookie.name,
+      });
+    } catch {
+      // Token decode failed, treat as unauthenticated
+    }
   }
 
   if (!token) {

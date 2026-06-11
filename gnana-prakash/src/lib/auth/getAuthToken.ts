@@ -1,26 +1,40 @@
-import { getToken } from "next-auth/jwt";
+import { decode } from "next-auth/jwt";
 import type { NextRequest } from "next/server";
 import type { JWT } from "next-auth/jwt";
 
 /**
- * Bulletproof token extraction for Vercel production.
+ * Bulletproof token extraction for Next.js 16 App Router + Vercel.
  * 
- * On Vercel (HTTPS), the session cookie is named `__Secure-next-auth.session-token`.
- * But `getToken` decides which cookie to read based on `NEXTAUTH_URL` — if that's
- * set to `http://localhost:3000` (a common mistake), it looks for the non-secure
- * cookie name and fails silently (returns null → 401).
+ * Problem: NextAuth v4's `getToken()` uses `req.cookies[name]` bracket access,
+ * but in Next.js 16 App Router, `req.cookies` is a `RequestCookies` class that
+ * requires `.get(name)` — bracket access silently returns `undefined`, causing
+ * permanent 401s in production.
  *
- * This helper tries secure first, then falls back to non-secure, covering both
- * production and local development without relying on env var correctness.
+ * Solution: Read cookies manually via `req.cookies.get()` and decode the JWT
+ * directly using NextAuth's `decode()` function, bypassing `getToken` entirely.
  */
 export async function getAuthToken(req: NextRequest): Promise<JWT | null> {
-  const secret = process.env.NEXTAUTH_SECRET;
+  const secret = process.env.NEXTAUTH_SECRET!;
 
-  // Try secure cookie first (Vercel/HTTPS production)
-  let token = await getToken({ req, secret, secureCookie: true });
-  if (token) return token;
+  // On Vercel (HTTPS), cookie name is __Secure-next-auth.session-token
+  // On localhost (HTTP), cookie name is next-auth.session-token
+  const secureCookie = req.cookies.get("__Secure-next-auth.session-token");
+  const normalCookie = req.cookies.get("next-auth.session-token");
+  const tokenCookie = secureCookie || normalCookie;
 
-  // Fallback to non-secure cookie (local development / HTTP)
-  token = await getToken({ req, secret, secureCookie: false });
-  return token;
+  if (!tokenCookie?.value) {
+    return null;
+  }
+
+  try {
+    const token = await decode({
+      token: tokenCookie.value,
+      secret,
+      salt: tokenCookie.name,
+    });
+    return token;
+  } catch (error) {
+    console.error("[getAuthToken] decode error:", error);
+    return null;
+  }
 }
