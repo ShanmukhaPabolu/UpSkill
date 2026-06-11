@@ -10,10 +10,18 @@ export default async function HomePage() {
   const tokenCookie = cookieStore.get("next-auth.session-token") || cookieStore.get("__Secure-next-auth.session-token");
   
   if (tokenCookie) {
-    const token = await decode({ token: tokenCookie.value, secret: process.env.NEXTAUTH_SECRET! });
-    if (token && token.role) {
-       const role = token.role as UserRole;
-       redirect(DASHBOARD_ROUTES[role] || "/login");
+    try {
+      const token = await decode({ 
+        token: tokenCookie.value, 
+        secret: process.env.NEXTAUTH_SECRET!,
+        salt: tokenCookie.name 
+      });
+      if (token && token.role) {
+         const role = token.role as UserRole;
+         redirect(DASHBOARD_ROUTES[role] || "/login");
+      }
+    } catch (error) {
+      console.error("JWT Decode Error:", error);
     }
   }
 
