@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthToken } from "@/lib/auth/getAuthToken";
 import connectDB from "@/lib/db/mongoose";
 import Venue from "@/models/Venue";
+import "@/models/District";
+import "@/models/Mandal";
 
 export async function GET(req: NextRequest) {
   try {
@@ -25,7 +27,8 @@ export async function GET(req: NextRequest) {
       Venue.countDocuments(query),
     ]);
     return NextResponse.json({ data, total, page, limit, totalPages: Math.ceil(total / limit) });
-  } catch {
+  } catch (error) {
+    console.error("[GET Venues Error]", error);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }

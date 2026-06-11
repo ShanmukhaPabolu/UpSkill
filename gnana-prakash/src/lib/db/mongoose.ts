@@ -1,5 +1,20 @@
 import mongoose from "mongoose";
 
+// Import all models to ensure they are registered before population
+import "@/models/Attendance";
+import "@/models/AuditLog";
+import "@/models/CustomField";
+import "@/models/District";
+import "@/models/FoodRecord";
+import "@/models/Mandal";
+import "@/models/Participant";
+import "@/models/Photo";
+import "@/models/Program";
+import "@/models/Tag";
+import "@/models/User";
+import "@/models/Venue";
+import "@/models/Video";
+
 const MONGODB_URI = process.env.MONGODB_URI!;
 
 if (!MONGODB_URI) {
