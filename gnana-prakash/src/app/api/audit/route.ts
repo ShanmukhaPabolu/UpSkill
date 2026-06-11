@@ -5,8 +5,7 @@ import AuditLog from "@/models/AuditLog";
 
 export async function GET(req: NextRequest) {
   try {
-    let token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET, secureCookie: process.env.NODE_ENV === 'production' || req.url.startsWith('https://') });
-    if (!token) token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET, secureCookie: false });
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
     const session = token ? { user: token } : null;
     if (!session || (session.user as any).role !== "SUPER_ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     await connectDB();

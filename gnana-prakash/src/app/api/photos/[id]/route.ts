@@ -7,8 +7,7 @@ import path from "path";
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  let token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET, secureCookie: process.env.NODE_ENV === 'production' || req.url.startsWith('https://') });
-    if (!token) token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET, secureCookie: false });
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
     const session = token ? { user: token } : null;
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   await connectDB();
