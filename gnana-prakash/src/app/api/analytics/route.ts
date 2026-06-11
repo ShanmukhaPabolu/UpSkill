@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth/options";
+import { getToken } from "next-auth/jwt";
 import connectDB from "@/lib/db/mongoose";
 import Program from "@/models/Program";
 import Participant from "@/models/Participant";
@@ -9,7 +8,8 @@ import Venue from "@/models/Venue";
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    const session = token ? { user: token } : null;
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     await connectDB();
     const { searchParams } = new URL(req.url);

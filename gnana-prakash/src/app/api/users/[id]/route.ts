@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth/options";
+import { getToken } from "next-auth/jwt";
 import connectDB from "@/lib/db/mongoose";
 import User from "@/models/User";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const session = await getServerSession(authOptions);
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    const session = token ? { user: token } : null;
   if (!session || (session.user as any).role !== "SUPER_ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   await connectDB();
   const body = await req.json();
@@ -17,7 +17,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const session = await getServerSession(authOptions);
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    const session = token ? { user: token } : null;
   if (!session || (session.user as any).role !== "SUPER_ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   await connectDB();
   const body = await req.json();
