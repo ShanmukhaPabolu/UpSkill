@@ -77,15 +77,7 @@ export default function LoginForm() {
         </Button>
       </form>
 
-      <div className="mt-8 pt-6 border-t border-slate-100 flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
-          <ShieldCheck className="w-4 h-4 text-emerald-500" />
-          <span className="text-xs text-emerald-600 font-medium tracking-wide">Encrypted Connection</span>
-        </div>
-        <p className="text-xs text-slate-400">
-          Demo: <span className="text-slate-600 font-medium">admin / Admin@1234</span>
-        </p>
-      </div>
+
     </div>
   );
 }
