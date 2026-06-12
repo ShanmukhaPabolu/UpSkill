@@ -4,8 +4,6 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/shared/ThemeProvider";
 import { Toaster } from "@/components/ui/toaster";
 import { QueryProvider } from "@/components/shared/QueryProvider";
-import { SessionProvider } from "@/components/shared/SessionProvider";
-
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 
 export const metadata: Metadata = {
@@ -24,14 +22,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
       </head>
       <body className={`${inter.variable} font-sans`}>
-        <SessionProvider>
           <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
             <QueryProvider>
               {children}
               <Toaster />
             </QueryProvider>
           </ThemeProvider>
-        </SessionProvider>
       </body>
     </html>
   );

@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 
+import { useQuery } from "@tanstack/react-query";
+
 const DEPARTMENTS = ["School Education", "Higher Education", "Technical Education", "Training & Planning", "SSA", "RMSA"];
 
 interface ProgramFormProps {
@@ -19,9 +21,46 @@ export default function ProgramForm({ defaultValues, onSuccess }: ProgramFormPro
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const cleanDefaultValues = defaultValues ? {
+    ...defaultValues,
+    district: typeof defaultValues.district === "object" ? (defaultValues.district as any)?._id : defaultValues.district,
+    mandal: typeof defaultValues.mandal === "object" ? (defaultValues.mandal as any)?._id : defaultValues.mandal,
+    venue: typeof defaultValues.venue === "object" ? (defaultValues.venue as any)?._id : defaultValues.venue,
+    startDate: defaultValues.startDate ? new Date(defaultValues.startDate as string).toISOString().split('T')[0] : "",
+    endDate: defaultValues.endDate ? new Date(defaultValues.endDate as string).toISOString().split('T')[0] : "",
+  } : undefined;
+
+  const [selectedDistrict, setSelectedDistrict] = useState<string>(cleanDefaultValues?.district || "");
+  const [selectedMandal, setSelectedMandal] = useState<string>(cleanDefaultValues?.mandal || "");
+
   const { register, handleSubmit, formState: { errors } } = useForm<ProgramInput>({
     resolver: zodResolver(programSchema),
-    defaultValues: defaultValues as ProgramInput,
+    defaultValues: cleanDefaultValues as ProgramInput,
+  });
+
+  const { data: districts } = useQuery({
+    queryKey: ["districts"],
+    queryFn: async () => { const res = await fetch("/api/districts"); return res.json(); }
+  });
+
+  const { data: mandals, isLoading: isLoadingMandals } = useQuery({
+    queryKey: ["mandals", selectedDistrict],
+    queryFn: async () => { 
+      if (!selectedDistrict) return [];
+      const res = await fetch(`/api/mandals?district=${selectedDistrict}`); 
+      return res.json(); 
+    },
+    enabled: !!selectedDistrict
+  });
+
+  const { data: venues, isLoading: isLoadingVenues } = useQuery({
+    queryKey: ["venues", selectedDistrict],
+    queryFn: async () => { 
+      if (!selectedDistrict) return { data: [] };
+      const res = await fetch(`/api/venues?district=${selectedDistrict}&limit=100`); 
+      return res.json(); 
+    },
+    enabled: !!selectedDistrict
   });
 
   const onSubmit = async (data: ProgramInput) => {
@@ -69,17 +108,26 @@ export default function ProgramForm({ defaultValues, onSuccess }: ProgramFormPro
         </div>
         <div className="space-y-1.5">
           <Label>District *</Label>
-          <Input placeholder="District ID or name" {...register("district")} />
+          <select className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" {...register("district")} onChange={(e) => { register("district").onChange(e); setSelectedDistrict(e.target.value); setSelectedMandal(""); }}>
+            <option value="">Select District</option>
+            {districts?.map((d: any) => <option key={d._id} value={d._id}>{d.name}</option>)}
+          </select>
           {errors.district && <p className="text-destructive text-xs">{errors.district.message}</p>}
         </div>
         <div className="space-y-1.5">
           <Label>Mandal *</Label>
-          <Input placeholder="Mandal ID or name" {...register("mandal")} />
+          <select className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" {...register("mandal")} disabled={!selectedDistrict || isLoadingMandals} onChange={(e) => { register("mandal").onChange(e); setSelectedMandal(e.target.value); }}>
+            <option value="">Select Mandal</option>
+            {mandals?.map((m: any) => <option key={m._id} value={m._id}>{m.name}</option>)}
+          </select>
           {errors.mandal && <p className="text-destructive text-xs">{errors.mandal.message}</p>}
         </div>
         <div className="space-y-1.5">
           <Label>Venue *</Label>
-          <Input placeholder="Venue ID" {...register("venue")} />
+          <select className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" {...register("venue")} disabled={!selectedMandal || isLoadingVenues}>
+            <option value="">Select Venue</option>
+            {venues?.data?.map((v: any) => <option key={v._id} value={v._id}>{v.name}</option>)}
+          </select>
           {errors.venue && <p className="text-destructive text-xs">{errors.venue.message}</p>}
         </div>
         <div className="space-y-1.5">

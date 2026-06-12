@@ -126,11 +126,11 @@ export default function ProgramsClient() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem className="gap-2"><Eye className="w-3.5 h-3.5" />View</DropdownMenuItem>
-                          <DropdownMenuItem className="gap-2" onClick={() => { setEditProgram(p); setShowForm(true); }}>
+                          <DropdownMenuItem className="gap-2" onSelect={(e) => { e.preventDefault(); setEditProgram(p); setShowForm(true); }}>
                             <Pencil className="w-3.5 h-3.5" />Edit
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem className="gap-2 text-destructive" onClick={() => deleteMutation.mutate(p._id)}>
+                          <DropdownMenuItem className="gap-2 text-destructive" onSelect={(e) => { e.preventDefault(); deleteMutation.mutate(p._id); }}>
                             <Trash2 className="w-3.5 h-3.5" />Delete
                           </DropdownMenuItem>
                         </DropdownMenuContent>

@@ -41,8 +41,8 @@ export async function GET(req: NextRequest) {
       },
       expires: token.exp ? new Date(Number(token.exp) * 1000).toISOString() : null,
     });
-  } catch (error) {
-    console.error("[custom-session] decode error:", error);
+  } catch {
+    // Silently ignore decode errors (likely an old or invalid token)
     return NextResponse.json({ user: null });
   }
 }

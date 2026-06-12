@@ -45,8 +45,8 @@ export async function getCustomSession() {
         ? new Date(Number(token.exp) * 1000).toISOString()
         : new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     };
-  } catch (error) {
-    console.error("[getCustomSession] decode error:", error);
+  } catch {
+    // Silently ignore decode errors (likely an old or invalid token)
     return null;
   }
 }

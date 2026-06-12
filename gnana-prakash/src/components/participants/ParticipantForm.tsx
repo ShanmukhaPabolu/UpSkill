@@ -9,14 +9,50 @@ import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { PARTICIPANT_CATEGORIES } from "@/lib/utils";
 
+import { useQuery } from "@tanstack/react-query";
+
 interface Props { defaultValues?: Record<string, unknown>; onSuccess?: () => void; }
 
 export default function ParticipantForm({ defaultValues, onSuccess }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const cleanDefaultValues = defaultValues ? {
+    ...defaultValues,
+    district: typeof defaultValues.district === "object" ? (defaultValues.district as any)?._id : defaultValues.district,
+    mandal: typeof defaultValues.mandal === "object" ? (defaultValues.mandal as any)?._id : defaultValues.mandal,
+    program: typeof defaultValues.program === "object" ? (defaultValues.program as any)?._id : defaultValues.program,
+  } : undefined;
+
+  const [selectedDistrict, setSelectedDistrict] = useState<string>(cleanDefaultValues?.district || "");
+  const [selectedMandal, setSelectedMandal] = useState<string>(cleanDefaultValues?.mandal || "");
+
   const { register, handleSubmit, formState: { errors } } = useForm<ParticipantInput>({
     resolver: zodResolver(participantSchema),
-    defaultValues: defaultValues as ParticipantInput,
+    defaultValues: cleanDefaultValues as ParticipantInput,
+  });
+
+  const { data: districts } = useQuery({
+    queryKey: ["districts"],
+    queryFn: async () => { const res = await fetch("/api/districts"); return res.json(); }
+  });
+
+  const { data: mandals, isLoading: isLoadingMandals } = useQuery({
+    queryKey: ["mandals", selectedDistrict],
+    queryFn: async () => { 
+      if (!selectedDistrict) return [];
+      const res = await fetch(`/api/mandals?district=${selectedDistrict}`); 
+      return res.json(); 
+    },
+    enabled: !!selectedDistrict
+  });
+
+  const { data: programs, isLoading: isLoadingPrograms } = useQuery({
+    queryKey: ["programs_list"],
+    queryFn: async () => { 
+      const res = await fetch(`/api/programs?limit=100`); 
+      return res.json(); 
+    }
   });
 
   const onSubmit = async (data: ParticipantInput) => {
@@ -82,16 +118,25 @@ export default function ParticipantForm({ defaultValues, onSuccess }: Props) {
         </div>
         <div className="space-y-1.5">
           <Label>District *</Label>
-          <Input placeholder="District" {...register("district")} />
+          <select className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" {...register("district")} onChange={(e) => { register("district").onChange(e); setSelectedDistrict(e.target.value); setSelectedMandal(""); }}>
+            <option value="">Select District</option>
+            {districts?.map((d: any) => <option key={d._id} value={d._id}>{d.name}</option>)}
+          </select>
           {errors.district && <p className="text-destructive text-xs">{errors.district.message}</p>}
         </div>
         <div className="space-y-1.5">
           <Label>Mandal</Label>
-          <Input placeholder="Mandal" {...register("mandal")} />
+          <select className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" {...register("mandal")} disabled={!selectedDistrict || isLoadingMandals} onChange={(e) => { register("mandal").onChange(e); setSelectedMandal(e.target.value); }}>
+            <option value="">Select Mandal</option>
+            {mandals?.map((m: any) => <option key={m._id} value={m._id}>{m.name}</option>)}
+          </select>
         </div>
         <div className="space-y-1.5">
-          <Label>Program ID *</Label>
-          <Input placeholder="Program ID" {...register("program")} />
+          <Label>Program *</Label>
+          <select className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" {...register("program")} disabled={isLoadingPrograms}>
+            <option value="">Select Program</option>
+            {programs?.data?.map((p: any) => <option key={p._id} value={p._id}>{p.programName}</option>)}
+          </select>
           {errors.program && <p className="text-destructive text-xs">{errors.program.message}</p>}
         </div>
         <div className="col-span-2">

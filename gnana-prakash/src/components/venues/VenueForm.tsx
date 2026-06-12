@@ -8,14 +8,39 @@ import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 
+import { useQuery } from "@tanstack/react-query";
+
 interface VenueFormProps { defaultValues?: Record<string, unknown>; onSuccess?: () => void; }
 
 export default function VenueForm({ defaultValues, onSuccess }: VenueFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const cleanDefaultValues = defaultValues ? {
+    ...defaultValues,
+    district: typeof defaultValues.district === "object" ? (defaultValues.district as any)?._id : defaultValues.district,
+    mandal: typeof defaultValues.mandal === "object" ? (defaultValues.mandal as any)?._id : defaultValues.mandal,
+  } : undefined;
+
+  const [selectedDistrict, setSelectedDistrict] = useState<string>(cleanDefaultValues?.district || "");
+
   const { register, handleSubmit, formState: { errors } } = useForm<VenueInput>({
     resolver: zodResolver(venueSchema),
-    defaultValues: defaultValues as VenueInput,
+    defaultValues: cleanDefaultValues as VenueInput,
+  });
+
+  const { data: districts } = useQuery({
+    queryKey: ["districts"],
+    queryFn: async () => { const res = await fetch("/api/districts"); return res.json(); }
+  });
+
+  const { data: mandals, isLoading: isLoadingMandals } = useQuery({
+    queryKey: ["mandals", selectedDistrict],
+    queryFn: async () => { 
+      if (!selectedDistrict) return [];
+      const res = await fetch(`/api/mandals?district=${selectedDistrict}`); 
+      return res.json(); 
+    },
+    enabled: !!selectedDistrict
   });
 
   const onSubmit = async (data: VenueInput) => {
@@ -49,12 +74,18 @@ export default function VenueForm({ defaultValues, onSuccess }: VenueFormProps) 
           </div>
           <div className="space-y-1.5">
             <Label>District *</Label>
-            <Input placeholder="District ID" {...register("district")} />
+            <select className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" {...register("district")} onChange={(e) => { register("district").onChange(e); setSelectedDistrict(e.target.value); }}>
+              <option value="">Select District</option>
+              {districts?.map((d: any) => <option key={d._id} value={d._id}>{d.name}</option>)}
+            </select>
             {errors.district && <p className="text-destructive text-xs">{errors.district.message}</p>}
           </div>
           <div className="space-y-1.5">
             <Label>Mandal *</Label>
-            <Input placeholder="Mandal ID" {...register("mandal")} />
+            <select className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" {...register("mandal")} disabled={!selectedDistrict || isLoadingMandals}>
+              <option value="">Select Mandal</option>
+              {mandals?.map((m: any) => <option key={m._id} value={m._id}>{m.name}</option>)}
+            </select>
             {errors.mandal && <p className="text-destructive text-xs">{errors.mandal.message}</p>}
           </div>
           <div className="space-y-1.5">

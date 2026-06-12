@@ -33,8 +33,8 @@ export async function getAuthToken(req: NextRequest): Promise<JWT | null> {
       salt: tokenCookie.name,
     });
     return token;
-  } catch (error) {
-    console.error("[getAuthToken] decode error:", error);
+  } catch {
+    // Silently ignore decode errors (likely an old or invalid token)
     return null;
   }
 }

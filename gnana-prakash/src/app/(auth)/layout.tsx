@@ -9,6 +9,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           src="/bg-gov.png"
           alt="Government Educational Building"
           fill
+          sizes="50vw"
           className="object-cover opacity-40 mix-blend-overlay"
           priority
         />

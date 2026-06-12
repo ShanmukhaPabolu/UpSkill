@@ -7,13 +7,19 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import VenueForm from "./VenueForm";
 
 async function fetchVenues(params: Record<string, string>) {
   const qs = new URLSearchParams(params).toString();
   const res = await fetch(`/api/venues?${qs}`);
   if (!res.ok) throw new Error("Failed");
+  return res.json();
+}
+
+async function deleteVenue(id: string) {
+  const res = await fetch(`/api/venues/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("Delete failed");
   return res.json();
 }
 
@@ -27,6 +33,11 @@ export default function VenuesClient() {
   const { data, isLoading } = useQuery({
     queryKey: ["venues", { search, page }],
     queryFn: () => fetchVenues({ search, page: String(page), limit: "12" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteVenue,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["venues"] }),
   });
 
   return (
@@ -66,8 +77,12 @@ export default function VenuesClient() {
                       <Button variant="ghost" size="icon-sm"><MoreHorizontal className="w-4 h-4" /></Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem className="gap-2" onClick={() => { setEditVenue(venue); setShowForm(true); }}>
+                      <DropdownMenuItem className="gap-2" onSelect={(e) => { e.preventDefault(); setEditVenue(venue); setShowForm(true); }}>
                         <Pencil className="w-3.5 h-3.5" /> Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem className="gap-2 text-destructive" onSelect={(e) => { e.preventDefault(); deleteMutation.mutate(venue._id); }}>
+                        <Trash2 className="w-3.5 h-3.5" /> Delete
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
