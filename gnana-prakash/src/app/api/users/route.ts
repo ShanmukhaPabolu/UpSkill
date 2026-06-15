@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
     const token = await getAuthToken(req);
     const session = token ? { user: token } : null;
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if ((session.user as any).!["SUPER_ADMIN", "STATE_ADMIN"].includes((session.user as any).role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!["SUPER_ADMIN", "STATE_ADMIN"].includes((session.user as any).role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     await connectDB();
     const { searchParams } = new URL(req.url);
     const page = parseInt(searchParams.get("page") || "1");
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
   try {
     const token = await getAuthToken(req);
     const session = token ? { user: token } : null;
-    if (!session || (session.user as any).!["SUPER_ADMIN", "STATE_ADMIN"].includes((session.user as any).role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!session || !["SUPER_ADMIN", "STATE_ADMIN"].includes((session.user as any).role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     await connectDB();
     const body = await req.json();
     const existing = await User.findOne({ $or: [{ email: body.email }, { employeeId: body.employeeId }] });
