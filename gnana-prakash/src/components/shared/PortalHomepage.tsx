@@ -91,7 +91,7 @@ export default function PortalHomepage({ dashboardUrl, isAuth }: { dashboardUrl:
         {/* Hero Section */}
         <section className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden relative">
           <div className="absolute top-0 right-0 w-[600px] h-full opacity-10 pointer-events-none">
-            <Image src="/features_bg.png" alt="Abstract Background" fill className="object-cover" />
+            <Image src="/features_bg.png" alt="Abstract Background" fill priority sizes="100vw" className="object-cover" />
           </div>
           <div className="relative z-10 p-8 md:p-12 flex flex-col md:flex-row gap-8 items-center justify-between">
             <div className="max-w-3xl">
