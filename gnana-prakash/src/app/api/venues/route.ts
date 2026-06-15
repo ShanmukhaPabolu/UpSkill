@@ -15,10 +15,12 @@ export async function GET(req: NextRequest) {
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "10");
     const district = searchParams.get("district");
+    const mandal = searchParams.get("mandal");
     const search = searchParams.get("search");
 
     const query: Record<string, unknown> = { isActive: true };
     if (district) query.district = district;
+    if (mandal) query.mandal = mandal;
     if (search) query.name = { $regex: search, $options: "i" };
 
     const skip = (page - 1) * limit;

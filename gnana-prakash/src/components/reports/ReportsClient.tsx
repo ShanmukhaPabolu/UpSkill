@@ -13,10 +13,64 @@ const REPORT_TYPES = [
   { id: "photo", label: "Photo Report", icon: Image, color: "text-rose-600", bg: "bg-rose-50 dark:bg-rose-950", desc: "Uploaded and approved media summary" },
   { id: "consolidated", label: "Consolidated Report", icon: BarChart3, color: "text-slate-600", bg: "bg-slate-50 dark:bg-slate-800", desc: "Full program report with all modules" },
 ];
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+
+const flattenObject = (obj: any, prefix = ""): any => {
+  return Object.keys(obj).reduce((acc: any, k) => {
+    // Ignore internal fields
+    if (k.startsWith("_") || k === "__v") return acc;
+    
+    const pre = prefix.length ? prefix + "_" : "";
+    if (typeof obj[k] === "object" && obj[k] !== null && !Array.isArray(obj[k])) {
+      if (obj[k].name) acc[pre + k] = obj[k].name;
+      else if (obj[k].programName) acc[pre + k] = obj[k].programName;
+      else Object.assign(acc, flattenObject(obj[k], pre + k));
+    } else {
+      acc[pre + k] = obj[k];
+    }
+    return acc;
+  }, {});
+};
 
 export default function ReportsClient() {
   const [generating, setGenerating] = useState<string | null>(null);
   const [filters, setFilters] = useState({ programId: "", district: "", from: "", to: "" });
+
+  const exportExcel = (data: any[], type: string) => {
+    if (!data || data.length === 0) {
+      alert("No data found for the selected filters.");
+      return;
+    }
+    const ws = XLSX.utils.json_to_sheet(data.map(item => flattenObject(item)));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Report");
+    XLSX.writeFile(wb, `${type}-report-${Date.now()}.xlsx`);
+  };
+
+  const exportPdf = (data: any[], type: string) => {
+    if (!data || data.length === 0) {
+      alert("No data found for the selected filters.");
+      return;
+    }
+    const doc = new jsPDF();
+    const flatData = data.map(item => flattenObject(item));
+    const head = [Object.keys(flatData[0]).map(k => k.replace(/_/g, " ").toUpperCase())];
+    const body = flatData.map(item => Object.values(item).map(v => String(v || "")));
+    
+    doc.setFontSize(16);
+    doc.text(`${type.toUpperCase()} REPORT`, 14, 15);
+    autoTable(doc, {
+      head,
+      body,
+      startY: 20,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [0, 65, 140] },
+      horizontalPageBreak: true
+    });
+    doc.save(`${type}-report-${Date.now()}.pdf`);
+  };
 
   const generate = async (type: string, format: "pdf" | "excel") => {
     setGenerating(`${type}-${format}`);
@@ -24,18 +78,16 @@ export default function ReportsClient() {
       const qs = new URLSearchParams({ type, format, ...Object.fromEntries(Object.entries(filters).filter(([,v]) => v)) }).toString();
       const res = await fetch(`/api/reports?${qs}`);
       if (res.ok) {
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `${type}-report-${Date.now()}.${format === "pdf" ? "pdf" : "xlsx"}`;
-        a.click();
-        URL.revokeObjectURL(url);
+        const data = await res.json();
+        if (format === "excel") exportExcel(data, type);
+        else exportPdf(data, type);
+      } else {
+        alert("Failed to generate report");
       }
     } catch (e) {
-      // show error toast
+      alert("An error occurred while generating the report");
     } finally {
-      setTimeout(() => setGenerating(null), 1000);
+      setGenerating(null);
     }
   };
 

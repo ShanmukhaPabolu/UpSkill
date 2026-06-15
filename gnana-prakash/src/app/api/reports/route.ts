@@ -23,9 +23,5 @@ export async function GET(req: NextRequest) {
     reportData = await Program.find({}).populate("district mandal venue").lean() as unknown as Record<string, unknown>[];
   }
 
-  // For prototype: return JSON (in production, generate actual PDF/Excel)
-  const headers = new Headers();
-  headers.set("Content-Type", "application/json");
-  headers.set("Content-Disposition", `attachment; filename="${type}-report.json"`);
-  return new NextResponse(JSON.stringify(reportData, null, 2), { headers });
+  return NextResponse.json(reportData);
 }

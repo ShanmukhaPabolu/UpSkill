@@ -54,13 +54,13 @@ export default function ProgramForm({ defaultValues, onSuccess }: ProgramFormPro
   });
 
   const { data: venues, isLoading: isLoadingVenues } = useQuery({
-    queryKey: ["venues", selectedDistrict],
+    queryKey: ["venues", selectedMandal],
     queryFn: async () => { 
-      if (!selectedDistrict) return { data: [] };
-      const res = await fetch(`/api/venues?district=${selectedDistrict}&limit=100`); 
+      if (!selectedMandal) return { data: [] };
+      const res = await fetch(`/api/venues?mandal=${selectedMandal}&limit=100`); 
       return res.json(); 
     },
-    enabled: !!selectedDistrict
+    enabled: !!selectedMandal
   });
 
   const onSubmit = async (data: ProgramInput) => {
@@ -127,6 +127,7 @@ export default function ProgramForm({ defaultValues, onSuccess }: ProgramFormPro
           <select className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" {...register("venue")} disabled={!selectedMandal || isLoadingVenues}>
             <option value="">Select Venue</option>
             {venues?.data?.map((v: any) => <option key={v._id} value={v._id}>{v.name}</option>)}
+            {venues?.data?.length === 0 && <option value="" disabled>No venues found for this mandal</option>}
           </select>
           {errors.venue && <p className="text-destructive text-xs">{errors.venue.message}</p>}
         </div>
