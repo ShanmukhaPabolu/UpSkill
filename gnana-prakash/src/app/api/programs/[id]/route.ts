@@ -43,7 +43,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const session = token ? { user: token } : null;
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const role = (session.user as any).role;
-    if (!["SUPER_ADMIN","DISTRICT_ADMIN"].includes(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!["SUPER_ADMIN", "STATE_ADMIN", "DISTRICT_ADMIN"].includes(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     await connectDB();
     await Program.findByIdAndDelete(id);
     await AuditLog.create({ user: (session.user as any).id, role, action: "DELETE", module: "PROGRAM", resourceId: id });

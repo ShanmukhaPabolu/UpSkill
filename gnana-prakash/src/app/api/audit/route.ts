@@ -7,7 +7,7 @@ export async function GET(req: NextRequest) {
   try {
     const token = await getAuthToken(req);
     const session = token ? { user: token } : null;
-    if (!session || (session.user as any).role !== "SUPER_ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!session || (session.user as any).!["SUPER_ADMIN", "STATE_ADMIN"].includes((session.user as any).role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     await connectDB();
     const { searchParams } = new URL(req.url);
     const page = parseInt(searchParams.get("page") || "1");

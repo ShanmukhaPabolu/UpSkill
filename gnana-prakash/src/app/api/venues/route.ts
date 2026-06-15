@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     const session = token ? { user: token } : null;
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const role = (session.user as any).role;
-    if (!["SUPER_ADMIN","DISTRICT_ADMIN"].includes(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!["SUPER_ADMIN", "STATE_ADMIN", "DISTRICT_ADMIN"].includes(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     await connectDB();
     const body = await req.json();
     const venue = await Venue.create(body);
