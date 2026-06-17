@@ -1,24 +1,42 @@
 import mongoose, { Schema } from "mongoose";
 
+// Force delete from cache in development to ensure schema changes apply during hot reloading
+if (mongoose.models && mongoose.models.Photo) {
+  delete (mongoose.models as any).Photo;
+}
+
 const PhotoSchema = new Schema({
-  program: { type: Schema.Types.ObjectId, ref: "Program", index: true },
+  program: { type: Schema.Types.ObjectId, ref: "Program", index: true, required: true },
   venue: { type: Schema.Types.ObjectId, ref: "Venue" },
-  filename: { type: String, required: true },
-  originalName: { type: String, required: true },
-  url: { type: String, required: true },
+  title: { type: String, required: true },
+  description: { type: String },
+  url: { type: String, required: true }, // Store base64 data URI here for MongoDB prototype storage
+  filename: { type: String, default: "" },
+  originalName: { type: String, default: "" },
   category: {
     type: String,
-    enum: ["VENUE","INAUGURATION","CLASSROOM","BREAKFAST","TEA_BREAK","LUNCH","SNACKS","DINNER","ACCOMMODATION","VALEDICTORY"],
+    enum: [
+      "Food Distribution",
+      "Inauguration Programs",
+      "Classes & Workshops",
+      "Residential Programs",
+      "Events",
+      "Awareness Campaigns",
+      "Training Sessions",
+      "Other Activities"
+    ],
     required: true,
   },
-  status: { type: String, enum: ["PENDING","APPROVED","REJECTED"], default: "PENDING" },
+  status: { type: String, enum: ["PENDING", "APPROVED", "REJECTED"], default: "PENDING" },
   uploadedBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
   uploadDate: { type: Date, default: Date.now },
   approvedBy: { type: Schema.Types.ObjectId, ref: "User" },
   approvalDate: { type: Date },
   remarks: { type: String },
-  size: { type: Number },
+  size: { type: Number, default: 0 },
   tags: [{ type: String }],
+  platform: { type: String, default: "Gnana Prakash" },
+  department: { type: String, default: "School Education" }
 }, { timestamps: true });
 
 PhotoSchema.index({ program: 1, status: 1 });
