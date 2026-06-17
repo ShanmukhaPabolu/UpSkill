@@ -48,7 +48,7 @@ export default async function SuperAdminDashboard() {
           <div className="relative">
             <p className="text-brand-200 text-sm font-medium mb-1">Welcome back,</p>
             <h2 className="text-2xl font-bold">{session?.user?.name}</h2>
-            <p className="text-brand-200 text-sm mt-1">You have <span className="text-white font-semibold">{stats.pendingPhotos + stats.pendingVideos}</span> pending media approvals</p>
+            <p className="text-brand-200 text-sm mt-1">You have <span className="text-white font-semibold">{stats.pendingPhotos}</span> pending media approvals</p>
           </div>
           <div className="absolute -right-8 -top-8 w-48 h-48 bg-white/10 rounded-full" />
           <div className="absolute -right-4 -bottom-12 w-32 h-32 bg-white/5 rounded-full" />
@@ -61,11 +61,10 @@ export default async function SuperAdminDashboard() {
           <StatCard title="Total Venues" value={stats.venues} subtitle="Training centers" icon={Building2} iconColor="text-emerald-600" iconBg="bg-emerald-50 dark:bg-emerald-950" />
           <StatCard title="Total Programs" value={stats.programs} subtitle={`${stats.activePrograms} active`} icon={GraduationCap} iconColor="text-amber-600" iconBg="bg-amber-50 dark:bg-amber-950" />
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <StatCard title="Total Participants" value={stats.participants} subtitle="Registered" icon={Users} iconColor="text-brand-600" iconBg="bg-brand-50 dark:bg-brand-950" />
           <StatCard title="Active Users" value={stats.users} subtitle="Portal access" icon={UserCheck} iconColor="text-emerald-600" iconBg="bg-emerald-50 dark:bg-emerald-950" />
           <StatCard title="Approved Photos" value={stats.photos} subtitle={`${stats.pendingPhotos} pending`} icon={Image} iconColor="text-violet-600" iconBg="bg-violet-50 dark:bg-violet-950" />
-          <StatCard title="Approved Videos" value={stats.videos} subtitle={`${stats.pendingVideos} pending`} icon={VideoIcon} iconColor="text-amber-600" iconBg="bg-amber-50 dark:bg-amber-950" />
         </div>
 
         {/* Charts */}
@@ -87,16 +86,7 @@ export default async function SuperAdminDashboard() {
                   <span className="text-xs text-amber-600 font-medium">Review →</span>
                 </div>
               )}
-              {stats.pendingVideos > 0 && (
-                <div className="flex items-center justify-between p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900">
-                  <div className="flex items-center gap-2">
-                    <VideoIcon className="w-4 h-4 text-amber-600" />
-                    <span className="text-sm font-medium">{stats.pendingVideos} Videos awaiting approval</span>
-                  </div>
-                  <span className="text-xs text-amber-600 font-medium">Review →</span>
-                </div>
-              )}
-              {stats.pendingPhotos === 0 && stats.pendingVideos === 0 && (
+              {stats.pendingPhotos === 0 && (
                 <div className="flex items-center gap-2 p-3 text-sm text-muted-foreground">
                   <CheckCircle className="w-4 h-4 text-emerald-500" /> All media approved
                 </div>

@@ -24,12 +24,10 @@ const NAV_CONFIG: Record<string, { label: string; icon: React.ElementType; href:
     { label: "Attendance", icon: ClipboardList, href: "/super-admin/attendance" },
     { label: "Food Records", icon: UtensilsCrossed, href: "/super-admin/food" },
     { label: "Photos", icon: Image, href: "/super-admin/photos" },
-    { label: "Videos", icon: Video, href: "/super-admin/videos" },
     { label: "Analytics", icon: BarChart3, href: "/super-admin/analytics" },
     { label: "Reports", icon: FileText, href: "/super-admin/reports" },
     { label: "Users", icon: Shield, href: "/super-admin/users" },
     { label: "Custom Fields", icon: Layers, href: "/super-admin/custom-fields" },
-    { label: "Tags", icon: Tag, href: "/super-admin/tags" },
     { label: "Audit Logs", icon: ClipboardList, href: "/super-admin/audit" },
   ],
   STATE_ADMIN: [
@@ -55,7 +53,6 @@ const NAV_CONFIG: Record<string, { label: string; icon: React.ElementType; href:
     { label: "Attendance", icon: ClipboardList, href: "/mandal-admin/attendance" },
     { label: "Food Records", icon: UtensilsCrossed, href: "/mandal-admin/food" },
     { label: "Photos", icon: Image, href: "/mandal-admin/photos" },
-    { label: "Videos", icon: Video, href: "/mandal-admin/videos" },
   ],
   VENUE_ADMIN: [
     { label: "Dashboard", icon: LayoutDashboard, href: "/mandal-admin" },
@@ -64,7 +61,6 @@ const NAV_CONFIG: Record<string, { label: string; icon: React.ElementType; href:
     { label: "Attendance", icon: ClipboardList, href: "/mandal-admin/attendance" },
     { label: "Food Records", icon: UtensilsCrossed, href: "/mandal-admin/food" },
     { label: "Photos", icon: Image, href: "/mandal-admin/photos" },
-    { label: "Videos", icon: Video, href: "/mandal-admin/videos" },
   ],
   TEACHER: [
     { label: "Dashboard", icon: LayoutDashboard, href: "/teacher" },
