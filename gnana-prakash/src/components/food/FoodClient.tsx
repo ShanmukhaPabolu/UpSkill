@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { formatDate } from "@/lib/utils";
 
 const MEALS = [
   { key: "breakfast", label: "Breakfast", icon: Sun, color: "text-amber-500" },
@@ -38,6 +40,16 @@ export default function FoodClient() {
     }
   });
 
+  const { data: foodRecords, isLoading: isLoadingFoodRecords, refetch: refetchFoodRecords } = useQuery({
+    queryKey: ["food_records", programId],
+    queryFn: async () => {
+      const url = programId ? `/api/food?program=${programId}` : "/api/food";
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Failed to fetch food records");
+      return res.json();
+    }
+  });
+
   const handleChange = (mealKey: string, field: string, value: string | number) => {
     setMeals(prev => ({ ...prev, [mealKey]: { ...prev[mealKey], [field]: value } }));
   };
@@ -50,7 +62,10 @@ export default function FoodClient() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ program: programId, date, dayNumber, ...meals }),
       });
-      if (res.ok) setSaved(true);
+      if (res.ok) {
+        setSaved(true);
+        refetchFoodRecords();
+      }
     } finally { setSaving(false); }
   };
 
@@ -146,6 +161,82 @@ export default function FoodClient() {
               Save Food Record
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <UtensilsCrossed className="w-5 h-5 text-brand-600" />
+            Saved Food Records
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoadingFoodRecords ? (
+            <div className="flex justify-center py-6">
+              <Loader2 className="w-6 h-6 animate-spin text-brand-600" />
+            </div>
+          ) : !foodRecords || foodRecords.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground border border-dashed rounded-xl">
+              No food records saved yet for this selection.
+            </div>
+          ) : (
+            <div className="overflow-x-auto border rounded-xl bg-white shadow-sm">
+              <Table className="text-xs">
+                <TableHeader className="bg-slate-50 border-b">
+                  <TableRow>
+                    <TableHead className="w-24 font-bold text-slate-700">Date</TableHead>
+                    <TableHead className="font-bold text-slate-700">Program Name</TableHead>
+                    <TableHead className="w-16 text-center font-bold text-slate-700">Day #</TableHead>
+                    {MEALS.map(m => (
+                      <TableHead key={m.key} className="text-center font-bold text-slate-700">
+                        <div className="flex flex-col items-center">
+                          <span>{m.label}</span>
+                          <span className="text-[10px] text-muted-foreground font-normal">Qty / Part.</span>
+                        </div>
+                      </TableHead>
+                    ))}
+                    <TableHead className="text-center font-bold text-slate-700">Total Served</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {foodRecords.map((record: any) => {
+                    const totalParticipants = MEALS.reduce(
+                      (sum, m) => sum + (record[m.key]?.participants || 0),
+                      0
+                    );
+                    return (
+                      <TableRow key={record._id} className="hover:bg-slate-50/50">
+                        <TableCell className="font-semibold text-slate-800">
+                          {formatDate(record.date)}
+                        </TableCell>
+                        <TableCell className="font-semibold text-slate-700 truncate max-w-[150px]" title={record.program?.programName || "—"}>
+                          {record.program?.programName || "—"}
+                        </TableCell>
+                        <TableCell className="text-center font-bold text-slate-600">
+                          {record.dayNumber}
+                        </TableCell>
+                        {MEALS.map(m => {
+                          const mealData = record[m.key] || { quantity: 0, participants: 0 };
+                          return (
+                            <TableCell key={m.key} className="text-center">
+                              <div className="inline-flex flex-col items-center">
+                                <span className="font-medium text-foreground">{mealData.quantity} <span className="text-[10px] text-muted-foreground">kg</span></span>
+                                <span className="text-[10px] font-semibold text-brand-600">{mealData.participants} <span className="text-[9px] text-muted-foreground">p.</span></span>
+                              </div>
+                            </TableCell>
+                          );
+                        })}
+                        <TableCell className="text-center font-extrabold text-brand-700 bg-brand-50/10">
+                          {totalParticipants}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
