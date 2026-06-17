@@ -23,7 +23,18 @@ export default function UsersClient() {
   const [role, setRole] = useState("");
   const [page, setPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<Record<string, any> | null>(null);
   const qc = useQueryClient();
+
+  const handleEdit = (user: Record<string, any>) => {
+    setSelectedUser(user);
+    setShowForm(true);
+  };
+
+  const handleAdd = () => {
+    setSelectedUser(null);
+    setShowForm(true);
+  };
 
   const { data, isLoading } = useQuery({
     queryKey: ["users", { search, role, page }],
@@ -57,7 +68,7 @@ export default function UsersClient() {
                   <option key={r} value={r}>{r.replace("_", " ")}</option>
                 ))}
               </select>
-              <Button size="sm" className="gap-2" onClick={() => setShowForm(true)}>
+              <Button size="sm" className="gap-2" onClick={handleAdd}>
                 <Plus className="w-4 h-4" /> Add User
               </Button>
             </div>
@@ -124,7 +135,7 @@ export default function UsersClient() {
                             <Button variant="ghost" size="icon-sm"><MoreHorizontal className="w-4 h-4" /></Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem className="gap-2"><Pencil className="w-3.5 h-3.5" />Edit</DropdownMenuItem>
+                            <DropdownMenuItem className="gap-2" onClick={() => handleEdit(user)}><Pencil className="w-3.5 h-3.5" />Edit</DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem className="gap-2" onClick={() => toggleActive.mutate({ id: user._id, isActive: !user.isActive })}>
                               {user.isActive ? <><UserX className="w-3.5 h-3.5" />Deactivate</> : <><UserCheck className="w-3.5 h-3.5" />Activate</>}
@@ -150,28 +161,65 @@ export default function UsersClient() {
         </CardContent>
       </Card>
 
-      <Dialog open={showForm} onOpenChange={setShowForm}>
+      <Dialog open={showForm} onOpenChange={(open) => { setShowForm(open); if (!open) setSelectedUser(null); }}>
         <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>Add New User</DialogTitle></DialogHeader>
-          <UserCreateForm onSuccess={() => { setShowForm(false); qc.invalidateQueries({ queryKey: ["users"] }); }} />
+          <DialogHeader><DialogTitle>{selectedUser ? "Edit User" : "Add New User"}</DialogTitle></DialogHeader>
+          <UserForm 
+            user={selectedUser} 
+            onSuccess={() => { 
+              setShowForm(false); 
+              setSelectedUser(null);
+              qc.invalidateQueries({ queryKey: ["users"] }); 
+            }} 
+          />
         </DialogContent>
       </Dialog>
     </div>
   );
 }
 
-function UserCreateForm({ onSuccess }: { onSuccess: () => void }) {
-  const [data, setData] = useState({ employeeId: "", name: "", email: "", password: "", mobile: "", role: "TEACHER", designation: "", department: "" });
+function UserForm({ user, onSuccess }: { user?: Record<string, any> | null; onSuccess: () => void }) {
+  const [data, setData] = useState({
+    employeeId: user?.employeeId || "",
+    name: user?.name || "",
+    email: user?.email || "",
+    password: "",
+    mobile: user?.mobile || "",
+    role: user?.role || "TEACHER",
+    designation: user?.designation || "",
+    department: user?.department || ""
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); setLoading(true); setError("");
     try {
-      const res = await fetch("/api/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
-      if (!res.ok) { const err = await res.json(); setError(err.error || "Failed"); return; }
+      const url = user ? `/api/users/${user._id}` : "/api/users";
+      const method = user ? "PUT" : "POST";
+      
+      const payload = { ...data };
+      if (user) {
+        delete (payload as any).password;
+      }
+
+      const res = await fetch(url, { 
+        method, 
+        headers: { "Content-Type": "application/json" }, 
+        body: JSON.stringify(payload) 
+      });
+      
+      if (!res.ok) { 
+        const err = await res.json(); 
+        setError(err.error || "Failed"); 
+        return; 
+      }
       onSuccess();
-    } catch { setError("Network error"); } finally { setLoading(false); }
+    } catch { 
+      setError("Network error"); 
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   const set = (k: string, v: string) => setData(p => ({ ...p, [k]: v }));
@@ -184,7 +232,14 @@ function UserCreateForm({ onSuccess }: { onSuccess: () => void }) {
         <div className="space-y-1"><label className="text-sm font-medium">Full Name *</label><Input value={data.name} onChange={e => set("name", e.target.value)} required /></div>
         <div className="space-y-1"><label className="text-sm font-medium">Email *</label><Input type="email" value={data.email} onChange={e => set("email", e.target.value)} required /></div>
         <div className="space-y-1"><label className="text-sm font-medium">Mobile *</label><Input value={data.mobile} onChange={e => set("mobile", e.target.value)} required /></div>
-        <div className="space-y-1"><label className="text-sm font-medium">Password *</label><Input type="password" value={data.password} onChange={e => set("password", e.target.value)} required minLength={8} /></div>
+        
+        {!user && (
+          <div className="space-y-1">
+            <label className="text-sm font-medium">Password *</label>
+            <Input type="password" value={data.password} onChange={e => set("password", e.target.value)} required minLength={8} />
+          </div>
+        )}
+        
         <div className="space-y-1"><label className="text-sm font-medium">Role *</label>
           <select className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-sm" value={data.role} onChange={e => set("role", e.target.value)}>
             {["SUPER_ADMIN","STATE_ADMIN","DISTRICT_ADMIN","MANDAL_ADMIN","VENUE_ADMIN","TEACHER","TRAINER","STAFF"].map(r => <option key={r} value={r}>{r.replace("_", " ")}</option>)}
@@ -195,7 +250,8 @@ function UserCreateForm({ onSuccess }: { onSuccess: () => void }) {
       </div>
       <div className="flex justify-end pt-2">
         <Button type="submit" disabled={loading} className="gap-2">
-          {loading && <Loader2 className="w-4 h-4 animate-spin" />} Create User
+          {loading && <Loader2 className="w-4 h-4 animate-spin" />} 
+          {user ? "Save Changes" : "Create User"}
         </Button>
       </div>
     </form>

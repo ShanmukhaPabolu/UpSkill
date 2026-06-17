@@ -10,6 +10,7 @@ import Program from "../../models/Program";
 import Participant from "../../models/Participant";
 import Attendance from "../../models/Attendance";
 import ParticipantAttendance from "../../models/ParticipantAttendance";
+import FoodRecord from "../../models/FoodRecord";
 
 const ALL_DISTRICTS = [
   "Alluri Sitharama Raju", "Anakapalli", "Anantapuramu", "Annamayya", "Bapatla", 
@@ -29,7 +30,8 @@ async function seed() {
     await Promise.all([
       User.deleteMany({}), District.deleteMany({}), Mandal.deleteMany({}),
       Venue.deleteMany({}), Program.deleteMany({}), Participant.deleteMany({}),
-      Attendance.deleteMany({}), ParticipantAttendance.deleteMany({})
+      Attendance.deleteMany({}), ParticipantAttendance.deleteMany({}),
+      FoodRecord.deleteMany({})
     ]);
 
     // Create 28 Districts
@@ -160,231 +162,294 @@ async function seed() {
     // ==========================================
     // SEED PROGRAMS AND ATTENDANCE
     // ==========================================
-    const krishnaDist = districtDocs.find(d => d.name === "Krishna");
-    const mptMandal = mandalDocs.find(m => m.name === "Machilipatnam");
-    const polyKrishna = venueDocs.find(v => v.name.includes("Krishna")) || venueDocs[0];
+    console.log("🌱 Seeding Programs and attendance...");
 
-    console.log("🌱 Seeding Programs...");
-    // 1. Program A: Active 6-day training
-    const programA = await Program.create({
-      programName: "Gnana Prakash Year - 3 Certificate Course Training for SGTs at Ground Level",
+    const MOCK_PARTICIPANTS_POOL = [
+      { employeeId: "EMP101", name: "K. Satya Narayana", email: "satya.sgt@gnana.edu.in", category: "SGT", mobile: "9876540101" },
+      { employeeId: "EMP102", name: "P. Rajeshwari", email: "rajeshwari.sgt@gnana.edu.in", category: "SGT", mobile: "9876540102" },
+      { employeeId: "EMP103", name: "G. Srinivasa Rao", email: "srinivas.sgt@gnana.edu.in", category: "SGT", mobile: "9876540103" },
+      { employeeId: "EMP104", name: "Ch. Lakshmi", email: "lakshmi.sgt@gnana.edu.in", category: "SGT", mobile: "9876540104" },
+      { employeeId: "EMP105", name: "V. Rama Krishna", email: "ramakrishna.sgt@gnana.edu.in", category: "SGT", mobile: "9876540105" },
+      { employeeId: "EMP106", name: "K. Durga Prasad", email: "durgaprasad.sgt@gnana.edu.in", category: "SGT", mobile: "9876540106" },
+      { employeeId: "EMP107", name: "Y. Venkata Lakshmi", email: "venkatalakshmi.sgt@gnana.edu.in", category: "SGT", mobile: "9876540107" },
+      { employeeId: "EMP108", name: "M. Bhaskara Rao", email: "bhaskar.sgt@gnana.edu.in", category: "SGT", mobile: "9876540108" },
+      { employeeId: "EMP109", name: "S. Nageswara Rao", email: "nageswar.sgt@gnana.edu.in", category: "SGT", mobile: "9876540109" },
+      { employeeId: "EMP110", name: "T. Anitha", email: "anitha.sgt@gnana.edu.in", category: "SGT", mobile: "9876540110" },
+      { employeeId: "EMP201", name: "B. Venkateswarlu", email: "venkat.krp@gnana.edu.in", category: "KRP", mobile: "9876540201" },
+      { employeeId: "EMP202", name: "S. Hymavathi", email: "hymavathi.krp@gnana.edu.in", category: "KRP", mobile: "9876540202" },
+      { employeeId: "EMP301", name: "D. Madhusudhan", email: "madhu.drp@gnana.edu.in", category: "DRP", mobile: "9876540301" },
+      { employeeId: "EMP302", name: "G. Kamala", email: "kamala.drp@gnana.edu.in", category: "DRP", mobile: "9876540302" },
+      { employeeId: "EMP401", name: "R. Chalapathi", email: "chalapathi.meo@gnana.edu.in", category: "MEO", mobile: "9876540401" },
+      { employeeId: "EMP402", name: "K. Vijaya Lakshmi", email: "vijaya.hm@gnana.edu.in", category: "HM", mobile: "9876540402" },
+      { employeeId: "EMP501", name: "J. Rambabu", email: "rambabu.crp@gnana.edu.in", category: "CRP", mobile: "9876540501" },
+      { employeeId: "EMP502", name: "P. Anuradha", email: "anuradha.deo@gnana.edu.in", category: "DEO_STAFF", mobile: "9876540502" },
+      { employeeId: "EMP503", name: "M. Subbaraju", email: "subbaraju.ss@gnana.edu.in", category: "SS_OFFICE_STAFF", mobile: "9876540503" },
+    ];
+
+    async function seedProgramWithHistory(options: {
+      programName: string;
+      trainingYear: string;
+      department: string;
+      districtDoc: any;
+      mandalDoc: any;
+      venueDoc: any;
+      startDate: Date;
+      totalDays: number;
+      expectedParticipants: number;
+      status: string;
+      participantsData: typeof MOCK_PARTICIPANTS_POOL;
+    }) {
+      const {
+        programName,
+        trainingYear,
+        department,
+        districtDoc,
+        mandalDoc,
+        venueDoc,
+        startDate,
+        totalDays,
+        expectedParticipants,
+        status,
+        participantsData
+      } = options;
+
+      const endDate = new Date(startDate);
+      endDate.setDate(startDate.getDate() + totalDays - 1);
+
+      const program = await Program.create({
+        programName,
+        trainingYear,
+        department,
+        district: districtDoc._id,
+        mandal: mandalDoc._id,
+        venue: venueDoc._id,
+        startDate,
+        endDate,
+        status,
+        totalDays,
+        expectedParticipants,
+        createdBy: superAdmin._id
+      });
+
+      const participants = await Participant.insertMany(
+        participantsData.map(p => ({
+          ...p,
+          schoolName: `ZP High School, ${districtDoc.name}`,
+          designation: p.category === "SGT" ? "SGT Teacher" : p.category,
+          district: districtDoc._id.toString(),
+          mandal: mandalDoc._id,
+          program: program._id,
+          certificateIssued: status === "COMPLETED",
+          certificateId: status === "COMPLETED" ? `CERT-${program._id}-${p.employeeId}` : undefined,
+          isActive: true
+        }))
+      );
+
+      if (status === "COMPLETED" || status === "ACTIVE") {
+        let daysToMark = totalDays;
+        if (status === "ACTIVE") {
+          const diffTime = Math.abs(Date.now() - startDate.getTime());
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          daysToMark = Math.min(diffDays, totalDays);
+        }
+
+        for (let day = 1; day <= daysToMark; day++) {
+          const date = new Date(startDate);
+          date.setDate(startDate.getDate() + day - 1);
+
+          const dailyPresences: Record<string, boolean> = {};
+          participants.forEach(p => {
+            dailyPresences[p._id.toString()] = Math.random() > 0.1;
+          });
+
+          const attRecords = participants.map(p => ({
+            program: program._id,
+            participant: p._id,
+            date,
+            dayNumber: day,
+            status: dailyPresences[p._id.toString()] ? "PRESENT" : "ABSENT",
+            recordedBy: superAdmin._id
+          }));
+          await ParticipantAttendance.insertMany(attRecords);
+
+          let sgt = 0, krp = 0, drp = 0, deoStaff = 0, ssStaff = 0, meo = 0, hm = 0, crp = 0, others = 0;
+          participants.forEach(p => {
+            if (dailyPresences[p._id.toString()]) {
+              const cat = p.category;
+              if (cat === "SGT") sgt++;
+              else if (cat === "KRP") krp++;
+              else if (cat === "DRP") drp++;
+              else if (cat === "DEO_STAFF") deoStaff++;
+              else if (cat === "SS_OFFICE_STAFF") ssStaff++;
+              else if (cat === "MEO") meo++;
+              else if (cat === "HM") hm++;
+              else if (cat === "CRP") crp++;
+              else others++;
+            }
+          });
+
+          const totalAttendance = sgt + krp + drp + deoStaff + ssStaff + meo + hm + crp + others;
+          const attendancePercentage = Math.round((totalAttendance / participants.length) * 100);
+
+          await Attendance.create({
+            program: program._id,
+            date,
+            dayNumber: day,
+            sgt,
+            krp,
+            drp,
+            deoStaff,
+            ssStaff,
+            meo,
+            hm,
+            crp,
+            others,
+            totalAttendance,
+            attendancePercentage,
+            recordedBy: superAdmin._id
+          });
+
+          // Create Food Record for this day
+          const foodCount = totalAttendance;
+          await FoodRecord.create({
+            program: program._id,
+            date,
+            dayNumber: day,
+            breakfast: { quantity: foodCount, participants: foodCount, remarks: "Served fresh idly & chutney" },
+            teaBreak: { quantity: foodCount, participants: foodCount, remarks: "Tea & biscuits" },
+            lunch: { quantity: foodCount, participants: foodCount, remarks: "Rice, sambar, fry and papad" },
+            snacks: { quantity: foodCount, participants: foodCount, remarks: "Samosa & tea" },
+            dinner: { quantity: foodCount, participants: foodCount, remarks: "Roti & mixed veg curry" },
+            recordedBy: superAdmin._id
+          });
+        }
+      }
+      return program;
+    }
+
+    const getDMW = (distName: string) => {
+      const districtDoc = districtDocs.find(d => d.name === distName);
+      if (!districtDoc) throw new Error(`District ${distName} not found`);
+      const distMandals = mandalDocs.filter(m => String(m.district) === String(districtDoc._id));
+      const distVenues = venueDocs.filter(v => String(v.district) === String(districtDoc._id));
+      return {
+        districtDoc,
+        mandalDoc: distMandals[0],
+        venueDoc: distVenues[0]
+      };
+    };
+
+    // Seeding Jan 2026
+    const dmwJan = getDMW("Krishna");
+    await seedProgramWithHistory({
+      programName: "Primary Teacher Mathematics Skill Enhancement Program",
       trainingYear: "2025-2026",
       department: "School Education",
-      district: krishnaDist._id,
-      mandal: mptMandal._id,
-      venue: polyKrishna._id,
-      startDate: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000), // Started 4 days ago
-      endDate: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000),
-      status: "ACTIVE",
-      totalDays: 6,
-      expectedParticipants: 9,
-      createdBy: superAdmin._id
+      districtDoc: dmwJan.districtDoc,
+      mandalDoc: dmwJan.mandalDoc,
+      venueDoc: dmwJan.venueDoc,
+      startDate: new Date("2026-01-12T09:00:00Z"),
+      totalDays: 5,
+      expectedParticipants: 15,
+      status: "COMPLETED",
+      participantsData: MOCK_PARTICIPANTS_POOL.slice(0, 15)
     });
 
-    // 2. Program B: Completed 3-day training
-    const programB = await Program.create({
+    // Seeding Feb 2026
+    const dmwFeb = getDMW("Anakapalli");
+    await seedProgramWithHistory({
+      programName: "English Language Intensive Pedagogy Training",
+      trainingYear: "2025-2026",
+      department: "School Education",
+      districtDoc: dmwFeb.districtDoc,
+      mandalDoc: dmwFeb.mandalDoc,
+      venueDoc: dmwFeb.venueDoc,
+      startDate: new Date("2026-02-09T09:00:00Z"),
+      totalDays: 4,
+      expectedParticipants: 12,
+      status: "COMPLETED",
+      participantsData: MOCK_PARTICIPANTS_POOL.slice(2, 14)
+    });
+
+    // Seeding Mar 2026
+    const dmwMar = getDMW("Guntur");
+    await seedProgramWithHistory({
+      programName: "Science Lab and Inquiry-based Learning Course",
+      trainingYear: "2025-2026",
+      department: "School Education",
+      districtDoc: dmwMar.districtDoc,
+      mandalDoc: dmwMar.mandalDoc,
+      venueDoc: dmwMar.venueDoc,
+      startDate: new Date("2026-03-16T09:00:00Z"),
+      totalDays: 3,
+      expectedParticipants: 18,
+      status: "COMPLETED",
+      participantsData: MOCK_PARTICIPANTS_POOL.slice(0, 18)
+    });
+
+    // Seeding Apr 2026
+    const dmwApr = getDMW("Kurnool");
+    await seedProgramWithHistory({
+      programName: "ICT and Digital Classroom Tools Training for HMs",
+      trainingYear: "2025-2026",
+      department: "School Education",
+      districtDoc: dmwApr.districtDoc,
+      mandalDoc: dmwApr.mandalDoc,
+      venueDoc: dmwApr.venueDoc,
+      startDate: new Date("2026-04-13T09:00:00Z"),
+      totalDays: 6,
+      expectedParticipants: 14,
+      status: "COMPLETED",
+      participantsData: MOCK_PARTICIPANTS_POOL.slice(4, 18)
+    });
+
+    // Seeding May 2026
+    const dmwMay = getDMW("East Godavari");
+    await seedProgramWithHistory({
+      programName: "Child Psychology & Inclusive Classroom Management",
+      trainingYear: "2025-2026",
+      department: "School Education",
+      districtDoc: dmwMay.districtDoc,
+      mandalDoc: dmwMay.mandalDoc,
+      venueDoc: dmwMay.venueDoc,
+      startDate: new Date("2026-05-11T09:00:00Z"),
+      totalDays: 4,
+      expectedParticipants: 16,
+      status: "COMPLETED",
+      participantsData: MOCK_PARTICIPANTS_POOL.slice(1, 17)
+    });
+
+    // Seeding Jun 2026 (Completed)
+    const dmwJun1 = getDMW("Krishna");
+    await seedProgramWithHistory({
       programName: "Foundational Literacy & Numeracy (FLN) Teacher Training",
       trainingYear: "2025-2026",
       department: "School Education",
-      district: krishnaDist._id,
-      mandal: mptMandal._id,
-      venue: polyKrishna._id,
-      startDate: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000),
-      endDate: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000),
+      districtDoc: dmwJun1.districtDoc,
+      mandalDoc: dmwJun1.mandalDoc,
+      venueDoc: dmwJun1.venueDoc,
+      startDate: new Date("2026-06-01T09:00:00Z"),
+      totalDays: 5,
+      expectedParticipants: 15,
       status: "COMPLETED",
-      totalDays: 3,
-      expectedParticipants: 5,
-      createdBy: superAdmin._id
+      participantsData: MOCK_PARTICIPANTS_POOL.slice(3, 18)
     });
 
-    console.log("✅ Seeded programs");
-
-    // Register Participants for Program A
-    const participantsAData = [
-      { employeeId: "EMP005", name: "Krishna Teacher 1", email: "teacher1@gnana.edu.in", category: "SGT", mobile: "9000000005" },
-      { employeeId: "EMP008", name: "Ravi Kumar", email: "ravi.sgt@gnana.edu.in", category: "SGT", mobile: "9876543210" },
-      { employeeId: "EMP009", name: "A. Lakshmi", email: "lakshmi.krp@gnana.edu.in", category: "KRP", mobile: "9876543211" },
-      { employeeId: "EMP010", name: "P. Srinivas", email: "srinivas.drp@gnana.edu.in", category: "DRP", mobile: "9876543212" },
-      { employeeId: "EMP011", name: "M. Venkat", email: "venkat.meo@gnana.edu.in", category: "MEO", mobile: "9876543213" },
-      { employeeId: "EMP012", name: "K. Ratnam", email: "ratnam.hm@gnana.edu.in", category: "HM", mobile: "9876543214" },
-      { employeeId: "EMP013", name: "G. Satish", email: "satish.crp@gnana.edu.in", category: "CRP", mobile: "9876543215" },
-      { employeeId: "EMP014", name: "S. Rama", email: "rama.deo@gnana.edu.in", category: "DEO_STAFF", mobile: "9876543216" },
-      { employeeId: "EMP015", name: "T. Prasad", email: "prasad.ss@gnana.edu.in", category: "SS_OFFICE_STAFF", mobile: "9876543217" },
-    ];
-
-    const participantsA = await Participant.insertMany(
-      participantsAData.map(p => ({
-        ...p,
-        schoolName: "Zilla Parishad High School, Krishna",
-        designation: p.category === "SGT" ? "SGT Teacher" : p.category,
-        district: krishnaDist._id,
-        mandal: mptMandal._id,
-        program: programA._id,
-        isActive: true
-      }))
-    );
-
-    // Register Participants for Program B (Completed FLN Training)
-    const participantsBData = [
-      { employeeId: "EMP005", name: "Krishna Teacher 1", email: "teacher1@gnana.edu.in", category: "SGT", mobile: "9000000005" },
-      { employeeId: "EMP008", name: "Ravi Kumar", email: "ravi.sgt@gnana.edu.in", category: "SGT", mobile: "9876543210" },
-      { employeeId: "EMP009", name: "A. Lakshmi", email: "lakshmi.krp@gnana.edu.in", category: "KRP", mobile: "9876543211" },
-    ];
-
-    const participantsB = await Participant.insertMany(
-      participantsBData.map(p => ({
-        ...p,
-        schoolName: "Zilla Parishad High School, Krishna",
-        designation: p.category === "SGT" ? "SGT Teacher" : p.category,
-        district: krishnaDist._id,
-        mandal: mptMandal._id,
-        program: programB._id,
-        certificateIssued: true, // Issue certificates for completed training
-        certificateId: `CERT-FLN-${p.employeeId}`,
-        isActive: true
-      }))
-    );
-
-    console.log("✅ Registered participants into programs");
-
-    // Seed daily attendance for Program A (Days 1 to 5)
-    // Day 1 to 5 dates
-    const dayDatesA = Array.from({ length: 5 }).map((_, i) => {
-      const d = new Date(programA.startDate);
-      d.setDate(d.getDate() + i);
-      return d;
+    // Seeding Jun 2026 (Active)
+    const dmwJunActive = getDMW("Alluri Sitharama Raju");
+    await seedProgramWithHistory({
+      programName: "Gnana Prakash Year - 3 Certificate Course Training for SGTs at Ground Level",
+      trainingYear: "2025-2026",
+      department: "School Education",
+      districtDoc: dmwJunActive.districtDoc,
+      mandalDoc: dmwJunActive.mandalDoc,
+      venueDoc: dmwJunActive.venueDoc,
+      startDate: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000), // Started 4 days ago
+      totalDays: 6,
+      expectedParticipants: 12,
+      status: "ACTIVE",
+      participantsData: MOCK_PARTICIPANTS_POOL.slice(0, 12)
     });
-
-    console.log("🌱 Seeding Attendance Logs for Program A (Days 1 to 5)...");
-    for (let day = 1; day <= 5; day++) {
-      const date = dayDatesA[day - 1];
-
-      // Mark individual attendance statuses
-      const dailyPresences: Record<string, boolean> = {};
-      participantsA.forEach(p => {
-        // Krishna Teacher 1 is PRESENT on Days 1, 2, 3, 5, but ABSENT on Day 4
-        if (p.employeeId === "EMP005") {
-          dailyPresences[p._id.toString()] = day !== 4;
-        } else {
-          // Others have some minor random absences
-          dailyPresences[p._id.toString()] = Math.random() > 0.15;
-        }
-      });
-
-      // Save ParticipantAttendance records
-      const attRecords = [];
-      for (const p of participantsA) {
-        const isPresent = dailyPresences[p._id.toString()];
-        const status = isPresent ? "PRESENT" : "ABSENT";
-        attRecords.push({
-          program: programA._id,
-          participant: p._id,
-          date,
-          dayNumber: day,
-          status,
-          recordedBy: superAdmin._id
-        });
-      }
-      await ParticipantAttendance.insertMany(attRecords);
-
-      // Save aggregate counts
-      let sgt = 0, krp = 0, drp = 0, deoStaff = 0, ssStaff = 0, meo = 0, hm = 0, crp = 0, others = 0;
-      participantsA.forEach(p => {
-        const isPresent = dailyPresences[p._id.toString()];
-        if (isPresent) {
-          const cat = p.category;
-          if (cat === "SGT") sgt++;
-          else if (cat === "KRP") krp++;
-          else if (cat === "DRP") drp++;
-          else if (cat === "DEO_STAFF") deoStaff++;
-          else if (cat === "SS_OFFICE_STAFF") ssStaff++;
-          else if (cat === "MEO") meo++;
-          else if (cat === "HM") hm++;
-          else if (cat === "CRP") crp++;
-          else others++;
-        }
-      });
-
-      const totalAttendance = sgt + krp + drp + deoStaff + ssStaff + meo + hm + crp + others;
-      const attendancePercentage = Math.round((totalAttendance / participantsA.length) * 100);
-
-      await Attendance.create({
-        program: programA._id,
-        date,
-        dayNumber: day,
-        sgt,
-        krp,
-        drp,
-        deoStaff,
-        ssStaff,
-        meo,
-        hm,
-        crp,
-        others,
-        totalAttendance,
-        attendancePercentage,
-        recordedBy: superAdmin._id
-      });
-    }
-
-    // Seed daily attendance for Program B (Days 1 to 3)
-    console.log("🌱 Seeding Attendance Logs for Program B (Days 1 to 3)...");
-    const dayDatesB = Array.from({ length: 3 }).map((_, i) => {
-      const d = new Date(programB.startDate);
-      d.setDate(d.getDate() + i);
-      return d;
-    });
-
-    for (let day = 1; day <= 3; day++) {
-      const date = dayDatesB[day - 1];
-
-      // Everyone is present in Program B
-      const attRecords = participantsB.map(p => ({
-        program: programB._id,
-        participant: p._id,
-        date,
-        dayNumber: day,
-        status: "PRESENT",
-        recordedBy: superAdmin._id
-      }));
-      await ParticipantAttendance.insertMany(attRecords);
-
-      // Aggregate
-      let sgt = 0, krp = 0, drp = 0, deoStaff = 0, ssStaff = 0, meo = 0, hm = 0, crp = 0, others = 0;
-      participantsB.forEach(p => {
-        const cat = p.category;
-        if (cat === "SGT") sgt++;
-        else if (cat === "KRP") krp++;
-        else if (cat === "DRP") drp++;
-        else if (cat === "DEO_STAFF") deoStaff++;
-        else if (cat === "SS_OFFICE_STAFF") ssStaff++;
-        else if (cat === "MEO") meo++;
-        else if (cat === "HM") hm++;
-        else if (cat === "CRP") crp++;
-        else others++;
-      });
-
-      const totalAttendance = sgt + krp + drp + deoStaff + ssStaff + meo + hm + crp + others;
-      const attendancePercentage = 100;
-
-      await Attendance.create({
-        program: programB._id,
-        date,
-        dayNumber: day,
-        sgt,
-        krp,
-        drp,
-        deoStaff,
-        ssStaff,
-        meo,
-        hm,
-        crp,
-        others,
-        totalAttendance,
-        attendancePercentage,
-        recordedBy: superAdmin._id
-      });
-    }
 
     console.log("\n🎉 Seed completed successfully!");
     console.log("  Super Admin:    admin@gnana.edu.in / Admin@1234");

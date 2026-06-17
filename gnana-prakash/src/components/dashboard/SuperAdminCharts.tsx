@@ -1,6 +1,8 @@
 "use client";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Legend } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useQuery } from "@tanstack/react-query";
+import { Loader2 } from "lucide-react";
 
 const ATTENDANCE_DATA = [
   { month: "Jan", sgt: 120, krp: 45, drp: 30, meo: 15 },
@@ -36,6 +38,75 @@ const PROGRAM_DATA = [
 ];
 
 export default function SuperAdminCharts() {
+  const { data: attendanceData, isLoading: isLoadingAttendance } = useQuery({
+    queryKey: ["super_admin_attendance"],
+    queryFn: async () => {
+      const res = await fetch("/api/analytics?type=attendance-trend");
+      if (!res.ok) throw new Error("Failed");
+      const data = await res.json();
+      const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      return data.map((d: any) => ({
+        month: monthNames[(d._id || 1) - 1],
+        sgt: d.sgt || 0,
+        krp: d.krp || 0,
+        drp: d.drp || 0,
+        meo: d.meo || 0,
+      }));
+    }
+  });
+
+  const { data: districtData, isLoading: isLoadingDistrict } = useQuery({
+    queryKey: ["super_admin_district"],
+    queryFn: async () => {
+      const res = await fetch("/api/analytics?type=district-participation");
+      if (!res.ok) throw new Error("Failed");
+      const data = await res.json();
+      return data.map((d: any) => ({
+        district: d.name,
+        participants: d.total || 0
+      }));
+    }
+  });
+
+  const { data: categoryData, isLoading: isLoadingCategory } = useQuery({
+    queryKey: ["super_admin_category"],
+    queryFn: async () => {
+      const res = await fetch("/api/analytics?type=category-distribution");
+      if (!res.ok) throw new Error("Failed");
+      const data = await res.json();
+      const colors = ["#3b82f6", "#8b5cf6", "#10b981", "#f59e0b", "#f43f5e", "#94a3b8", "#ec4899", "#14b8a6"];
+      return data.map((d: any, idx: number) => ({
+        name: d._id || "Unknown",
+        value: d.count || 0,
+        color: colors[idx % colors.length]
+      }));
+    }
+  });
+
+  const { data: programData, isLoading: isLoadingProgram } = useQuery({
+    queryKey: ["super_admin_programs"],
+    queryFn: async () => {
+      const res = await fetch("/api/analytics?type=program-status");
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    }
+  });
+
+  const isLoading = isLoadingAttendance || isLoadingDistrict || isLoadingCategory || isLoadingProgram;
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-48">
+        <Loader2 className="w-6 h-6 animate-spin text-brand-600" />
+      </div>
+    );
+  }
+
+  const attendanceFinal = attendanceData && attendanceData.length > 0 ? attendanceData : ATTENDANCE_DATA;
+  const districtFinal = districtData && districtData.length > 0 ? districtData : DISTRICT_DATA;
+  const categoryFinal = categoryData && categoryData.length > 0 ? categoryData : PIE_DATA;
+  const programFinal = programData && programData.length > 0 ? programData : PROGRAM_DATA;
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       <Card>
@@ -44,7 +115,7 @@ export default function SuperAdminCharts() {
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={ATTENDANCE_DATA} margin={{ top: 5, right: 10, bottom: 5, left: -20 }}>
+            <LineChart data={attendanceFinal} margin={{ top: 5, right: 10, bottom: 5, left: -20 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
               <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
@@ -64,7 +135,7 @@ export default function SuperAdminCharts() {
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={DISTRICT_DATA} layout="vertical" margin={{ top: 5, right: 10, bottom: 5, left: 10 }}>
+            <BarChart data={districtFinal} layout="vertical" margin={{ top: 5, right: 10, bottom: 5, left: 10 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis type="number" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
               <YAxis dataKey="district" type="category" tick={{ fontSize: 11 }} width={70} stroke="hsl(var(--muted-foreground))" />
@@ -82,8 +153,8 @@ export default function SuperAdminCharts() {
         <CardContent>
           <ResponsiveContainer width="100%" height={220}>
             <PieChart>
-              <Pie data={PIE_DATA} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={3} dataKey="value">
-                {PIE_DATA.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+              <Pie data={categoryFinal} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={3} dataKey="value">
+                {categoryFinal.map((entry: any, i: number) => <Cell key={i} fill={entry.color} />)}
               </Pie>
               <Tooltip contentStyle={{ borderRadius: "8px", border: "1px solid hsl(var(--border))", background: "hsl(var(--card))", color: "hsl(var(--foreground))" }} />
               <Legend iconSize={8} wrapperStyle={{ fontSize: "11px" }} />
@@ -98,7 +169,7 @@ export default function SuperAdminCharts() {
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={PROGRAM_DATA} margin={{ top: 5, right: 10, bottom: 5, left: -20 }}>
+            <BarChart data={programFinal} margin={{ top: 5, right: 10, bottom: 5, left: -20 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
               <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />

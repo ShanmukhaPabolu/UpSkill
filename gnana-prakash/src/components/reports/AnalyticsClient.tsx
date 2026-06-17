@@ -2,6 +2,8 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Legend, AreaChart, Area } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useQuery } from "@tanstack/react-query";
+import { Loader2 } from "lucide-react";
 
 const MONTHLY_ATTENDANCE = [
   { month: "Jan", total: 420, sgt: 180, krp: 80, drp: 60, others: 100 },
@@ -54,6 +56,90 @@ const CATEGORY_PIE = [
 const TOOLTIP_STYLE = { borderRadius: "8px", border: "1px solid hsl(var(--border))", background: "hsl(var(--card))", color: "hsl(var(--foreground))", fontSize: "12px" };
 
 export default function AnalyticsClient() {
+  const { data: attendanceData, isLoading: isLoadingAttendance } = useQuery({
+    queryKey: ["analytics_attendance"],
+    queryFn: async () => {
+      const res = await fetch("/api/analytics?type=attendance-trend");
+      if (!res.ok) throw new Error("Failed");
+      const data = await res.json();
+      const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      return data.map((d: any) => ({
+        month: monthNames[(d._id || 1) - 1],
+        total: d.total || 0,
+        sgt: d.sgt || 0,
+        krp: d.krp || 0,
+        drp: d.drp || 0,
+        others: d.others || 0
+      }));
+    }
+  });
+
+  const { data: districtData, isLoading: isLoadingDistrict } = useQuery({
+    queryKey: ["analytics_district"],
+    queryFn: async () => {
+      const res = await fetch("/api/analytics?type=district-participation");
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    }
+  });
+
+  const { data: categoryData, isLoading: isLoadingCategory } = useQuery({
+    queryKey: ["analytics_category"],
+    queryFn: async () => {
+      const res = await fetch("/api/analytics?type=category-distribution");
+      if (!res.ok) throw new Error("Failed");
+      const data = await res.json();
+      const colors = ["#3b82f6", "#8b5cf6", "#10b981", "#f59e0b", "#f43f5e", "#94a3b8", "#ec4899", "#14b8a6"];
+      const totalCount = data.reduce((sum: number, d: any) => sum + (d.count || 0), 0);
+      return data.map((d: any, idx: number) => ({
+        name: d._id || "Unknown",
+        value: totalCount > 0 ? Math.round(((d.count || 0) / totalCount) * 100) : 0,
+        color: colors[idx % colors.length]
+      }));
+    }
+  });
+
+  const { data: venueData, isLoading: isLoadingVenue } = useQuery({
+    queryKey: ["analytics_venue"],
+    queryFn: async () => {
+      const res = await fetch("/api/analytics?type=venue-utilization");
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    }
+  });
+
+  const { data: foodData, isLoading: isLoadingFood } = useQuery({
+    queryKey: ["analytics_food"],
+    queryFn: async () => {
+      const res = await fetch("/api/analytics?type=food-trends");
+      if (!res.ok) throw new Error("Failed");
+      const data = await res.json();
+      const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      return data.map((d: any) => ({
+        month: monthNames[(d._id || 1) - 1],
+        breakfast: d.breakfast || 0,
+        lunch: d.lunch || 0,
+        dinner: d.dinner || 0
+      }));
+    }
+  });
+
+  const isLoading = isLoadingAttendance || isLoadingDistrict || isLoadingCategory || isLoadingVenue || isLoadingFood;
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-96">
+        <Loader2 className="w-8 h-8 animate-spin text-brand-600" />
+      </div>
+    );
+  }
+
+  const attendanceDataFinal = attendanceData && attendanceData.length > 0 ? attendanceData : MONTHLY_ATTENDANCE;
+  const districtDataFinal = districtData && districtData.length > 0 ? districtData : DISTRICT_DATA;
+  const categoryDataFinal = categoryData && categoryData.length > 0 ? categoryData : CATEGORY_PIE;
+  const venueDataFinal = venueData && venueData.length > 0 ? venueData : VENUE_UTILIZATION;
+  const foodDataFinal = foodData && foodData.length > 0 ? foodData : FOOD_DATA;
+
   return (
     <div className="space-y-6">
       <Tabs defaultValue="attendance">
@@ -70,7 +156,7 @@ export default function AnalyticsClient() {
               <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground font-semibold">Monthly Attendance Trend</CardTitle></CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={260}>
-                  <AreaChart data={MONTHLY_ATTENDANCE} margin={{ top: 5, right: 10, bottom: 5, left: -15 }}>
+                  <AreaChart data={attendanceDataFinal} margin={{ top: 5, right: 10, bottom: 5, left: -15 }}>
                     <defs>
                       <linearGradient id="totalGrad" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
@@ -90,7 +176,7 @@ export default function AnalyticsClient() {
               <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground font-semibold">Category-wise Attendance</CardTitle></CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={260}>
-                  <BarChart data={MONTHLY_ATTENDANCE} margin={{ top: 5, right: 10, bottom: 5, left: -15 }}>
+                  <BarChart data={attendanceDataFinal} margin={{ top: 5, right: 10, bottom: 5, left: -15 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                     <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
                     <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
@@ -109,13 +195,13 @@ export default function AnalyticsClient() {
             <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground font-semibold">Participant Category Distribution</CardTitle></CardHeader>
             <CardContent className="flex flex-col sm:flex-row items-center gap-6">
               <PieChart width={220} height={220}>
-                <Pie data={CATEGORY_PIE} cx="50%" cy="50%" innerRadius={55} outerRadius={90} paddingAngle={3} dataKey="value">
-                  {CATEGORY_PIE.map((e, i) => <Cell key={i} fill={e.color} />)}
+                <Pie data={categoryDataFinal} cx="50%" cy="50%" innerRadius={55} outerRadius={90} paddingAngle={3} dataKey="value">
+                  {categoryDataFinal.map((e: any, i: number) => <Cell key={i} fill={e.color} />)}
                 </Pie>
                 <Tooltip contentStyle={TOOLTIP_STYLE} />
               </PieChart>
               <div className="grid grid-cols-2 gap-3 flex-1">
-                {CATEGORY_PIE.map(e => (
+                {categoryDataFinal.map((e: any) => (
                   <div key={e.name} className="flex items-center gap-2 p-3 rounded-xl border">
                     <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: e.color }} />
                     <div>
@@ -134,7 +220,7 @@ export default function AnalyticsClient() {
             <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground font-semibold">District-wise Participation</CardTitle></CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={320}>
-                <BarChart data={DISTRICT_DATA} margin={{ top: 5, right: 10, bottom: 5, left: -10 }}>
+                <BarChart data={districtDataFinal} margin={{ top: 5, right: 10, bottom: 5, left: -10 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
                   <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
@@ -154,7 +240,7 @@ export default function AnalyticsClient() {
             <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground font-semibold">Venue Utilization</CardTitle></CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {VENUE_UTILIZATION.map(v => (
+                {venueDataFinal.map((v: any) => (
                   <div key={v.venue} className="space-y-1.5">
                     <div className="flex justify-between text-sm">
                       <span className="font-medium">{v.venue}</span>
@@ -175,7 +261,7 @@ export default function AnalyticsClient() {
             <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground font-semibold">Food Consumption Trends</CardTitle></CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={FOOD_DATA} margin={{ top: 5, right: 10, bottom: 5, left: -10 }}>
+                <LineChart data={foodDataFinal} margin={{ top: 5, right: 10, bottom: 5, left: -10 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
                   <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />

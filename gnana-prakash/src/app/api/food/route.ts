@@ -4,6 +4,8 @@ import connectDB from "@/lib/db/mongoose";
 import FoodRecord from "@/models/FoodRecord";
 import { AuditLogger } from "@/lib/audit/AuditLogger";
 
+import Program from "@/models/Program";
+
 export async function GET(req: NextRequest) {
   const token = await getAuthToken(req);
   const session = token ? { user: token } : null;
@@ -13,7 +15,7 @@ export async function GET(req: NextRequest) {
   const program = searchParams.get("program");
   const query: Record<string, unknown> = {};
   if (program) query.program = program;
-  const data = await FoodRecord.find(query).sort({ date: -1 }).lean();
+  const data = await FoodRecord.find(query).populate("program", "programName").sort({ date: -1 }).lean();
   return NextResponse.json(data);
 }
 
