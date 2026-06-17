@@ -40,9 +40,21 @@ export async function GET(req: NextRequest) {
           }
         },
         {
+          $addFields: {
+            districtIdObj: {
+              $convert: {
+                input: "$_id",
+                to: "objectId",
+                onError: null,
+                onNull: null
+              }
+            }
+          }
+        },
+        {
           $lookup: {
             from: "districts",
-            localField: "_id",
+            localField: "districtIdObj",
             foreignField: "_id",
             as: "districtInfo"
           }
@@ -128,6 +140,34 @@ export async function GET(req: NextRequest) {
         { $limit: 10 }
       ]);
       return NextResponse.json(data);
+    }
+
+    if (type === "program-status") {
+      const data = await Program.aggregate([
+        {
+          $group: {
+            _id: {
+              month: { $month: "$startDate" },
+              status: "$status"
+            },
+            count: { $sum: 1 }
+          }
+        },
+        { $sort: { "_id.month": 1 } }
+      ]);
+      const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      const formatted: Record<number, any> = {};
+      data.forEach(d => {
+        const m = d._id.month || 1;
+        if (!formatted[m]) {
+          formatted[m] = { month: monthNames[m - 1], completed: 0, active: 0, draft: 0 };
+        }
+        const status = (d._id.status || "").toLowerCase();
+        if (status === "completed") formatted[m].completed += d.count;
+        else if (status === "active") formatted[m].active += d.count;
+        else if (status === "draft") formatted[m].draft += d.count;
+      });
+      return NextResponse.json(Object.values(formatted));
     }
 
     return NextResponse.json({ message: "Analytics endpoint ready" });
