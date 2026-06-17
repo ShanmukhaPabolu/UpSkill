@@ -12,6 +12,7 @@ import {
   UserCheck, Users, Percent, FileText, CheckSquare, Square, Printer, UserPlus, Trash2
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { toast } from "@/lib/hooks/use-toast";
 
 const PARTICIPANT_ROLES = [
   { value: "SGT", label: "SGT" },
@@ -116,8 +117,9 @@ export default function AttendanceClient() {
       
       // Update role locally in React query cache to avoid flash
       qc.invalidateQueries({ queryKey: ["attendance_detailed", programId] });
-    } catch (err) {
-      alert("Error updating role.");
+      toast({ title: "Role Updated", description: `Participant category updated to ${newRole}.`, variant: "success" });
+    } catch (err: any) {
+      toast({ title: "Role Update Failed", description: err.message || "Error updating role.", variant: "destructive" });
     }
   };
 
@@ -130,8 +132,9 @@ export default function AttendanceClient() {
       });
       if (!res.ok) throw new Error("Failed to delete participant");
       qc.invalidateQueries({ queryKey: ["attendance_detailed", programId] });
-    } catch (err) {
-      alert("Error deleting participant.");
+      toast({ title: "Participant Removed", description: "Successfully removed participant from the program.", variant: "success" });
+    } catch (err: any) {
+      toast({ title: "Deletion Failed", description: err.message || "Error deleting participant.", variant: "destructive" });
     }
   };
 
@@ -218,11 +221,11 @@ export default function AttendanceClient() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["attendance_detailed", programId] });
-      alert("Manual attendance matrix saved and synchronized successfully!");
+      toast({ title: "Attendance Saved", description: "Manual attendance matrix saved and synchronized successfully!", variant: "success" });
     },
-    onError: (err) => {
+    onError: (err: any) => {
       console.error(err);
-      alert("Error saving attendance matrix.");
+      toast({ title: "Save Failed", description: err.message || "Error saving attendance matrix.", variant: "destructive" });
     }
   });
 

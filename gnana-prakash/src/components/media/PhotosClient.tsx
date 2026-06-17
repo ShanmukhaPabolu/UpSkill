@@ -36,6 +36,23 @@ export default function PhotosClient() {
   const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
   const [selectedPhoto, setSelectedPhoto] = useState<Record<string, any> | null>(null);
 
+  // Toast notifications state
+  interface ToastItem {
+    id: string;
+    title: string;
+    description?: string;
+    type: "success" | "error" | "info";
+  }
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  
+  const showToast = (title: string, type: "success" | "error" | "info" = "info", description?: string) => {
+    const id = Math.random().toString(36).substring(2, 9);
+    setToasts(prev => [...prev, { id, title, description, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 6000);
+  };
+
   // Upload Form controls
   const [uploadTitle, setUploadTitle] = useState("");
   const [uploadDescription, setUploadDescription] = useState("");
@@ -236,6 +253,7 @@ export default function PhotosClient() {
 
       const resData = await res.json();
       setUploadSuccessMessage(resData.message || "Upload submitted successfully.");
+      showToast("Upload Successful", "success", "Your image upload request has been submitted for approval.");
       
       // Clear inputs
       setUploadTitle("");
@@ -249,7 +267,9 @@ export default function PhotosClient() {
       qc.invalidateQueries({ queryKey: ["photos_approved"] });
       if (isSuperAdmin) qc.invalidateQueries({ queryKey: ["photos_pending"] });
     } catch (err: any) {
-      setUploadError(err.message || "Something went wrong.");
+      const errMsg = err.message || "Something went wrong.";
+      setUploadError(errMsg);
+      showToast("Upload Failed", "error", errMsg);
     } finally {
       setIsUploading(false);
     }
@@ -273,10 +293,10 @@ export default function PhotosClient() {
       qc.invalidateQueries({ queryKey: ["photos_approved"] });
       qc.invalidateQueries({ queryKey: ["photos_pending"] });
       qc.invalidateQueries({ queryKey: ["photos_rejected"] });
-      alert(data.message || "Status updated successfully.");
+      showToast("Status Updated", "success", data.message || "The photo status has been updated successfully.");
     },
     onError: (err: any) => {
-      alert("Error: " + err.message);
+      showToast("Action Failed", "error", err.message || "Could not update the photo status.");
     }
   });
 
@@ -294,10 +314,10 @@ export default function PhotosClient() {
       qc.invalidateQueries({ queryKey: ["photos_pending"] });
       qc.invalidateQueries({ queryKey: ["photos_rejected"] });
       setSelectedPhoto(null);
-      alert("Image deleted successfully.");
+      showToast("Image Deleted", "success", "The photo has been permanently deleted from the gallery.");
     },
-    onError: (err) => {
-      alert("Error deleting image: " + err.message);
+    onError: (err: any) => {
+      showToast("Delete Failed", "error", err.message || "Could not delete the photo.");
     }
   });
 
@@ -337,9 +357,9 @@ export default function PhotosClient() {
       setSelectedPhoto(updated.data);
       setIsEditing(false);
       qc.invalidateQueries({ queryKey: ["photos_approved"] });
-      alert("Metadata updated successfully.");
+      showToast("Metadata Updated", "success", "The photo metadata has been updated successfully.");
     } catch (err: any) {
-      alert("Error editing metadata: " + err.message);
+      showToast("Update Failed", "error", err.message || "Could not update the photo metadata.");
     } finally {
       setIsSavingEdit(false);
     }
@@ -758,7 +778,7 @@ export default function PhotosClient() {
                           size="sm"
                           onClick={() => {
                             if (!approvalRemarks[photo._id]?.trim()) {
-                              alert("Please enter a rejection reason in the remarks field before rejecting.");
+                              showToast("Remarks Required", "error", "Please enter a rejection reason in the remarks field before rejecting.");
                               return;
                             }
                             actionMutation.mutate({ 
