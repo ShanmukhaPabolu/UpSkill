@@ -6,7 +6,7 @@ import District from "@/models/District";
 import Mandal from "@/models/Mandal";
 import Venue from "@/models/Venue";
 import User from "@/models/User";
-import AuditLog from "@/models/AuditLog";
+import { AuditLogger } from "@/lib/audit/AuditLogger";
 import { programSchema } from "@/lib/validations";
 
 export async function GET(req: NextRequest) {
@@ -83,13 +83,17 @@ export async function POST(req: NextRequest) {
       createdBy: (session.user as any).id,
     });
 
-    await AuditLog.create({
-      user: (session.user as any).id,
+    await AuditLogger.log({
+      userId: session.user.sub || (session.user as any).id,
+      userName: session.user.name || session.user.email || "",
       role: (session.user as any).role,
-      action: "CREATE",
-      module: "PROGRAM",
-      resourceId: program._id.toString(),
-      details: { programName: program.programName },
+      action: "PROGRAM_CREATED",
+      module: "Programs",
+      description: `Created program ${program.programName}`,
+      entityId: program._id.toString(),
+      entityType: "Program",
+      newValues: program.toObject(),
+      req
     });
 
     return NextResponse.json(program, { status: 201 });

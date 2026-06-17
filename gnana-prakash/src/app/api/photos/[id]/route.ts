@@ -3,6 +3,7 @@ import { getAuthToken } from "@/lib/auth/getAuthToken";
 import connectDB from "@/lib/db/mongoose";
 import Photo from "@/models/Photo";
 import Program from "@/models/Program";
+import { AuditLogger } from "@/lib/audit/AuditLogger";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -12,12 +13,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const role = (session.user as any).role;
-    // Strict Role Permission: Only the Super Admin is permitted to edit metadata
     if (role !== "SUPER_ADMIN") {
       return NextResponse.json({ error: "Forbidden. Only Super Admin can edit image metadata." }, { status: 403 });
     }
 
     await connectDB();
+
+    const oldPhoto = await Photo.findById(id).lean();
+    if (!oldPhoto) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
     const body = await req.json();
     const { title, description, category, platform, eventDate, additionalNotes, programId } = body;
 
@@ -42,6 +46,28 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const photo = await Photo.findByIdAndUpdate(id, updateFields, { new: true });
     if (!photo) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+    const oldClean = { ...(oldPhoto as any) };
+    if (oldClean.image) delete oldClean.image;
+    if (oldClean.url) delete oldClean.url;
+
+    const newClean = photo.toObject();
+    if (newClean.image) delete newClean.image;
+    if (newClean.url) delete newClean.url;
+
+    await AuditLogger.log({
+      userId: session.user.sub || (session.user as any).id,
+      userName: session.user.name || session.user.email || "",
+      role: (session.user as any).role,
+      action: "MEDIA_METADATA_UPDATE",
+      module: "Photos",
+      description: `Updated metadata for photo ${photo.title}`,
+      entityId: id,
+      entityType: "Photo",
+      oldValues: oldClean,
+      newValues: newClean,
+      req
+    });
+
     return NextResponse.json({ success: true, data: photo });
   } catch (err: any) {
     console.error("PATCH photo error:", err);
@@ -57,7 +83,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     
     const role = (session.user as any).role;
-    // Strict Role Permission: Only Super Admin is permitted to delete images
     if (role !== "SUPER_ADMIN") {
       return NextResponse.json({ error: "Forbidden. Only Super Admin can delete images." }, { status: 403 });
     }
@@ -66,7 +91,26 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const photo = await Photo.findById(id);
     if (!photo) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+    const oldClean = photo.toObject();
+    if (oldClean.image) delete oldClean.image;
+    if (oldClean.url) delete oldClean.url;
+
     await Photo.findByIdAndDelete(id);
+
+    await AuditLogger.log({
+      userId: session.user.sub || (session.user as any).id,
+      userName: session.user.name || session.user.email || "",
+      role: (session.user as any).role,
+      action: "MEDIA_DELETE",
+      module: "Photos",
+      description: `Deleted photo: ${photo.title}`,
+      entityId: id,
+      entityType: "Photo",
+      oldValues: oldClean,
+      newValues: {},
+      req
+    });
+
     return NextResponse.json({ success: true });
   } catch (err: any) {
     console.error("DELETE photo error:", err);

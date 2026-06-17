@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthToken } from "@/lib/auth/getAuthToken";
 import connectDB from "@/lib/db/mongoose";
 import Attendance from "@/models/Attendance";
+import { AuditLogger } from "@/lib/audit/AuditLogger";
 
 export async function GET(req: NextRequest) {
   try {
@@ -27,13 +28,37 @@ export async function POST(req: NextRequest) {
     await connectDB();
     const body = await req.json();
     const total = (body.sgt||0)+(body.krp||0)+(body.drp||0)+(body.deoStaff||0)+(body.ssStaff||0)+(body.meo||0)+(body.hm||0)+(body.crp||0)+(body.others||0);
+
+    const oldRecord = await Attendance.findOne({ program: body.program, date: new Date(body.date) }).lean();
+
     const record = await Attendance.findOneAndUpdate(
       { program: body.program, date: new Date(body.date) },
       { ...body, totalAttendance: total, recordedBy: (session.user as any).id },
       { upsert: true, new: true }
     );
+
+    const action = oldRecord ? "ATTENDANCE_UPDATED" : "ATTENDANCE_MARKED";
+    const description = oldRecord 
+      ? `Updated attendance for program ${body.programName || body.program} on ${new Date(body.date).toLocaleDateString()} (Total: ${total})`
+      : `Marked attendance for program ${body.programName || body.program} on ${new Date(body.date).toLocaleDateString()} (Total: ${total})`;
+
+    await AuditLogger.log({
+      userId: session.user.sub || (session.user as any).id,
+      userName: session.user.name || session.user.email || "",
+      role: (session.user as any).role,
+      action,
+      module: "Attendance",
+      description,
+      entityId: record._id.toString(),
+      entityType: "Attendance",
+      oldValues: oldRecord || {},
+      newValues: record.toObject(),
+      req
+    });
+
     return NextResponse.json(record, { status: 201 });
-  } catch {
+  } catch (error) {
+    console.error("Attendance post error:", error);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }

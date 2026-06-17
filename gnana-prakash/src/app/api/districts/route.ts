@@ -3,6 +3,8 @@ import { getAuthToken } from "@/lib/auth/getAuthToken";
 import connectDB from "@/lib/db/mongoose";
 import District from "@/models/District";
 
+import { AuditLogger } from "@/lib/audit/AuditLogger";
+
 export async function GET(req: NextRequest) {
   try {
     const token = await getAuthToken(req);
@@ -22,6 +24,20 @@ export async function POST(req: NextRequest) {
     await connectDB();
     const body = await req.json();
     const district = await District.create(body);
+
+    await AuditLogger.log({
+      userId: session.user.sub || (session.user as any).id,
+      userName: session.user.name || session.user.email || "",
+      role: (session.user as any).role,
+      action: "DISTRICT_CREATED",
+      module: "Districts",
+      description: `Created district ${district.name}`,
+      entityId: district._id.toString(),
+      entityType: "District",
+      newValues: district.toObject(),
+      req
+    });
+
     return NextResponse.json(district, { status: 201 });
   } catch { return NextResponse.json({ error: "Server error" }, { status: 500 }); }
 }

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthToken } from "@/lib/auth/getAuthToken";
 import connectDB from "@/lib/db/mongoose";
 import Photo from "@/models/Photo";
-import AuditLog from "@/models/AuditLog";
+import { AuditLogger } from "@/lib/audit/AuditLogger";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -12,12 +12,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const role = (session.user as any).role;
-    // Strict Role Permission: Only the Super Admin is permitted to approve/reject requests
     if (role !== "SUPER_ADMIN") {
       return NextResponse.json({ error: "Forbidden. Only Super Admin can perform review actions." }, { status: 403 });
     }
 
     await connectDB();
+    const oldPhoto = await Photo.findById(id).lean();
+    if (!oldPhoto) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
     const { action, remarks } = await req.json();
     const status = action === "approve" ? "Approved" : "Rejected";
 
@@ -32,12 +34,31 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const photo = await Photo.findByIdAndUpdate(id, updateFields, { new: true });
     if (!photo) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    await AuditLog.create({ 
-      user: (session.user as any).id, 
-      role, 
-      action: `MEDIA_${status.toUpperCase()}`, 
-      module: "PHOTO", 
-      resourceId: id 
+    const oldClean = { ...(oldPhoto as any) };
+    if (oldClean.image) delete oldClean.image;
+    if (oldClean.url) delete oldClean.url;
+
+    const newClean = photo.toObject();
+    if (newClean.image) delete newClean.image;
+    if (newClean.url) delete newClean.url;
+
+    const auditAction = action === "approve" ? "MEDIA_APPROVE" : "MEDIA_REJECT";
+    const auditDesc = action === "approve" 
+      ? `Approved photo request for ${photo.title}` 
+      : `Rejected photo request for ${photo.title} with remarks: ${remarks || "None"}`;
+
+    await AuditLogger.log({
+      userId: session.user.sub || (session.user as any).id,
+      userName: session.user.name || session.user.email || "",
+      role: (session.user as any).role,
+      action: auditAction,
+      module: "Photos",
+      description: auditDesc,
+      entityId: id,
+      entityType: "Photo",
+      oldValues: oldClean,
+      newValues: newClean,
+      req
     });
 
     const successMessage = action === "approve" 

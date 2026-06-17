@@ -5,6 +5,8 @@ import Venue from "@/models/Venue";
 import "@/models/District";
 import "@/models/Mandal";
 
+import { AuditLogger } from "@/lib/audit/AuditLogger";
+
 export async function GET(req: NextRequest) {
   try {
     const token = await getAuthToken(req);
@@ -45,6 +47,20 @@ export async function POST(req: NextRequest) {
     await connectDB();
     const body = await req.json();
     const venue = await Venue.create(body);
+
+    await AuditLogger.log({
+      userId: session.user.sub || (session.user as any).id,
+      userName: session.user.name || session.user.email || "",
+      role: (session.user as any).role,
+      action: "VENUE_CREATED",
+      module: "Venues",
+      description: `Created venue ${venue.name}`,
+      entityId: venue._id.toString(),
+      entityType: "Venue",
+      newValues: venue.toObject(),
+      req
+    });
+
     return NextResponse.json(venue, { status: 201 });
   } catch (error: any) {
     console.error("[POST Venues Error]", error);

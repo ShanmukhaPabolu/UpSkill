@@ -4,6 +4,7 @@ import connectDB from "@/lib/db/mongoose";
 import Video from "@/models/Video";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
+import { AuditLogger } from "@/lib/audit/AuditLogger";
 
 export async function GET(req: NextRequest) {
   try {
@@ -52,6 +53,20 @@ export async function POST(req: NextRequest) {
       uploadedBy: (session.user as any).id,
       size: file.size,
     });
+
+    await AuditLogger.log({
+      userId: session.user.sub || (session.user as any).id,
+      userName: session.user.name || session.user.email || "",
+      role: (session.user as any).role,
+      action: "MEDIA_UPLOAD_REQUEST",
+      module: "Videos",
+      description: `Uploaded video: ${video.title} (${video.filename})`,
+      entityId: video._id.toString(),
+      entityType: "Video",
+      newValues: video.toObject(),
+      req
+    });
+
     return NextResponse.json(video, { status: 201 });
   } catch { return NextResponse.json({ error: "Upload failed" }, { status: 500 }); }
 }

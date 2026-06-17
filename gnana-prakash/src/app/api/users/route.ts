@@ -3,6 +3,8 @@ import { getAuthToken } from "@/lib/auth/getAuthToken";
 import connectDB from "@/lib/db/mongoose";
 import User from "@/models/User";
 
+import { AuditLogger } from "@/lib/audit/AuditLogger";
+
 export async function GET(req: NextRequest) {
   try {
     const token = await getAuthToken(req);
@@ -40,6 +42,20 @@ export async function POST(req: NextRequest) {
     if (existing) return NextResponse.json({ error: "User already exists" }, { status: 409 });
     const user = await User.create(body);
     const { password: _, ...userObj } = user.toObject();
+
+    await AuditLogger.log({
+      userId: session.user.sub || (session.user as any).id,
+      userName: session.user.name || session.user.email || "",
+      role: (session.user as any).role,
+      action: "USER_CREATED",
+      module: "Users",
+      description: `Created user ${userObj.name} (${userObj.email}) with role ${userObj.role}`,
+      entityId: userObj._id.toString(),
+      entityType: "User",
+      newValues: userObj,
+      req
+    });
+
     return NextResponse.json(userObj, { status: 201 });
   } catch {
     return NextResponse.json({ error: "Server error" }, { status: 500 });

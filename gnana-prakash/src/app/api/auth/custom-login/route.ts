@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { encode } from "next-auth/jwt";
 import connectDB from "@/lib/db/mongoose";
 import User from "@/models/User";
+import { AuditLogger } from "@/lib/audit/AuditLogger";
 
 /**
  * Custom login endpoint that bypasses NextAuth's broken signIn() flow on Next.js 16.
@@ -30,6 +31,15 @@ export async function POST(req: NextRequest) {
 
     const user = await User.findOne({ email, isActive: true }).select("+password");
     if (!user) {
+      await AuditLogger.log({
+        userId: "UNKNOWN",
+        userName: email,
+        role: "UNKNOWN",
+        action: "FAILED_LOGIN_ATTEMPT",
+        module: "Authentication",
+        description: `Failed login attempt for email: ${email} (User not found or inactive)`,
+        req
+      });
       return NextResponse.json(
         { error: "Invalid credentials" },
         { status: 401 }
@@ -38,11 +48,31 @@ export async function POST(req: NextRequest) {
 
     const isValid = await user.comparePassword(password);
     if (!isValid) {
+      await AuditLogger.log({
+        userId: user._id.toString(),
+        userName: user.name,
+        role: user.role,
+        action: "FAILED_LOGIN_ATTEMPT",
+        module: "Authentication",
+        description: `Failed login attempt for user: ${user.name} (${email}) - Invalid password`,
+        req
+      });
       return NextResponse.json(
         { error: "Invalid credentials" },
         { status: 401 }
       );
     }
+
+    // Success login
+    await AuditLogger.log({
+      userId: user._id.toString(),
+      userName: user.name,
+      role: user.role,
+      action: "LOGIN",
+      module: "Authentication",
+      description: `User ${user.name} logged in successfully`,
+      req
+    });
 
     // Update last login
     await User.findByIdAndUpdate(user._id, { lastLogin: new Date() });

@@ -5,6 +5,7 @@ import Photo from "@/models/Photo";
 import Program from "@/models/Program";
 import Participant from "@/models/Participant";
 import User from "@/models/User";
+import { AuditLogger } from "@/lib/audit/AuditLogger";
 
 export async function GET(req: NextRequest) {
   try {
@@ -187,6 +188,23 @@ export async function POST(req: NextRequest) {
       filename: file.name || "image.jpg",
       originalName: file.name || "image.jpg",
       size: file.size || 0
+    });
+
+    const auditValues = photo.toObject();
+    if (auditValues.image) delete auditValues.image;
+    if (auditValues.url) delete auditValues.url;
+
+    await AuditLogger.log({
+      userId: session.user.sub || (session.user as any).id,
+      userName: session.user.name || session.user.email || "",
+      role: (session.user as any).role,
+      action: "MEDIA_UPLOAD_REQUEST",
+      module: "Photos",
+      description: `Uploaded photo: ${photo.title} (${photo.filename}) for program ${photo.programName} (Status: ${status})`,
+      entityId: photo._id.toString(),
+      entityType: "Photo",
+      newValues: auditValues,
+      req
     });
 
     const userMessage = isSuperAdmin 

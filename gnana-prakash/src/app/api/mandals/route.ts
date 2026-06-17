@@ -3,6 +3,8 @@ import { getAuthToken } from "@/lib/auth/getAuthToken";
 import connectDB from "@/lib/db/mongoose";
 import Mandal from "@/models/Mandal";
 
+import { AuditLogger } from "@/lib/audit/AuditLogger";
+
 export async function GET(req: NextRequest) {
   try {
     const token = await getAuthToken(req);
@@ -26,6 +28,20 @@ export async function POST(req: NextRequest) {
     await connectDB();
     const body = await req.json();
     const mandal = await Mandal.create(body);
+
+    await AuditLogger.log({
+      userId: session.user.sub || (session.user as any).id,
+      userName: session.user.name || session.user.email || "",
+      role: (session.user as any).role,
+      action: "MANDAL_CREATED",
+      module: "Mandals",
+      description: `Created mandal ${mandal.name}`,
+      entityId: mandal._id.toString(),
+      entityType: "Mandal",
+      newValues: mandal.toObject(),
+      req
+    });
+
     return NextResponse.json(mandal, { status: 201 });
   } catch { return NextResponse.json({ error: "Server error" }, { status: 500 }); }
 }

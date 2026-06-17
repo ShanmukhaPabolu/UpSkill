@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import connectDB from "@/lib/db/mongoose";
 import User from "@/models/User";
+import { AuditLogger } from "@/lib/audit/AuditLogger";
 
 export async function POST(req: Request) {
   try {
@@ -33,6 +34,19 @@ export async function POST(req: Request) {
     });
 
     await newUser.save();
+
+    await AuditLogger.log({
+      userId: "REGISTRATION",
+      userName: name,
+      role: role,
+      action: "USER_CREATED",
+      module: "Users",
+      description: `Self-registration submitted by ${name} (${email}) requesting role ${role}`,
+      entityId: newUser._id.toString(),
+      entityType: "User",
+      newValues: { name, email, mobile, role, isActive: false },
+      req
+    });
 
     return NextResponse.json({ success: true, message: "Registration successful. Pending admin approval." }, { status: 201 });
 

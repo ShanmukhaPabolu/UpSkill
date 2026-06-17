@@ -1,19 +1,24 @@
 import mongoose, { Schema } from "mongoose";
 
 const AuditLogSchema = new Schema({
-  user: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
-  role: { type: String, required: true },
-  action: { type: String, required: true },
-  module: { type: String, required: true },
-  resourceId: { type: String },
-  resourceType: { type: String },
-  details: { type: Schema.Types.Mixed },
+  userId: { type: String, required: true, index: true },
+  userName: { type: String, required: true },
+  role: { type: String, required: true, index: true },
+  action: { type: String, required: true, index: true },
+  module: { type: String, required: true, index: true },
+  description: { type: String, required: true },
+  entityId: { type: String, index: true },
+  entityType: { type: String },
   ipAddress: { type: String },
-  userAgent: { type: String },
-  timestamp: { type: Date, default: Date.now, index: true },
-}, { timestamps: false });
+  deviceInfo: { type: String },
+  oldValues: { type: Schema.Types.Mixed, default: {} },
+  newValues: { type: Schema.Types.Mixed, default: {} },
+  createdAt: { type: Date, default: Date.now, index: true }
+}, { 
+  collection: "audit_logs", 
+  timestamps: false 
+});
 
-AuditLogSchema.index({ timestamp: -1 });
-AuditLogSchema.index({ user: 1, timestamp: -1 });
+AuditLogSchema.index({ createdAt: -1 });
 
 export default mongoose.models.AuditLog || mongoose.model("AuditLog", AuditLogSchema);

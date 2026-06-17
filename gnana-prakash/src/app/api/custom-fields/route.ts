@@ -3,6 +3,8 @@ import { getAuthToken } from "@/lib/auth/getAuthToken";
 import connectDB from "@/lib/db/mongoose";
 import CustomField from "@/models/CustomField";
 
+import { AuditLogger } from "@/lib/audit/AuditLogger";
+
 export async function GET(req: NextRequest) {
   try {
     const token = await getAuthToken(req);
@@ -26,6 +28,20 @@ export async function POST(req: NextRequest) {
     await connectDB();
     const body = await req.json();
     const field = await CustomField.create({ ...body, createdBy: (session.user as any).id });
+
+    await AuditLogger.log({
+      userId: session.user.sub || (session.user as any).id,
+      userName: session.user.name || session.user.email || "",
+      role: (session.user as any).role,
+      action: "SETTINGS_CHANGED",
+      module: "System Admin",
+      description: `Created custom field ${field.fieldName} for module ${field.module}`,
+      entityId: field._id.toString(),
+      entityType: "CustomField",
+      newValues: field.toObject(),
+      req
+    });
+
     return NextResponse.json(field, { status: 201 });
   } catch { return NextResponse.json({ error: "Server error" }, { status: 500 }); }
 }
