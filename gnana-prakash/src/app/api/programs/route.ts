@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthToken } from "@/lib/auth/getAuthToken";
 import connectDB from "@/lib/db/mongoose";
 import Program from "@/models/Program";
+import District from "@/models/District";
+import Mandal from "@/models/Mandal";
+import Venue from "@/models/Venue";
+import User from "@/models/User";
 import AuditLog from "@/models/AuditLog";
 import { programSchema } from "@/lib/validations";
 
@@ -25,8 +29,19 @@ export async function GET(req: NextRequest) {
     if (search) query.programName = { $regex: search, $options: "i" };
 
     const role = (session.user as any).role;
-    if (role === "DISTRICT_ADMIN") query.district = (session.user as any).district;
-    else if (["MANDAL_ADMIN","VENUE_ADMIN"].includes(role)) query.mandal = (session.user as any).mandal;
+    const bypassScope = searchParams.get("bypassScope") === "true";
+    
+    if (!bypassScope) {
+      if (role === "DISTRICT_ADMIN") query.district = (session.user as any).district;
+      else if (["MANDAL_ADMIN","VENUE_ADMIN"].includes(role)) query.mandal = (session.user as any).mandal;
+    }
+
+    console.log("SERVER GET /api/programs INFO:", {
+      userId: (session.user as any).id,
+      userEmail: session.user.email,
+      userRole: role,
+      query,
+    });
 
     const skip = (page - 1) * limit;
     const [data, total] = await Promise.all([
@@ -34,8 +49,15 @@ export async function GET(req: NextRequest) {
       Program.countDocuments(query),
     ]);
 
+    console.log("SERVER GET /api/programs SUCCESS:", {
+      totalFound: total,
+      dataLength: data.length,
+      firstProgram: data[0] ? { id: data[0]._id, name: data[0].programName } : null
+    });
+
     return NextResponse.json({ data, total, page, limit, totalPages: Math.ceil(total / limit) });
   } catch (error) {
+    console.error("Error in GET /api/programs:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

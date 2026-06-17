@@ -4,6 +4,7 @@ import connectDB from "@/lib/db/mongoose";
 import Photo from "@/models/Photo";
 import Program from "@/models/Program";
 import Participant from "@/models/Participant";
+import User from "@/models/User";
 
 export async function GET(req: NextRequest) {
   try {
@@ -13,20 +14,32 @@ export async function GET(req: NextRequest) {
     
     await connectDB();
     const { searchParams } = new URL(req.url);
-    const program = searchParams.get("program");
-    const status = searchParams.get("status") || "APPROVED"; // default to APPROVED for public view
+    const programId = searchParams.get("program");
     const category = searchParams.get("category");
     const platform = searchParams.get("platform");
     const search = searchParams.get("search");
+    const sortOrder = searchParams.get("sort") || "latest"; // latest or oldest
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "24");
 
-    const query: Record<string, any> = {};
-    
     const userRole = (session.user as any).role || "TEACHER";
-    const isAdmin = ["SUPER_ADMIN", "STATE_ADMIN", "DISTRICT_ADMIN", "MANDAL_ADMIN", "VENUE_ADMIN"].includes(userRole);
+    const isSuperAdmin = userRole === "SUPER_ADMIN";
+    
+    // Strict Visibility Rules:
+    // 1. Before approval: Nobody can see the image except the Super Admin.
+    // Therefore, if the user is NOT a Super Admin, force the status search to "Approved".
+    let queryStatus = searchParams.get("status") || "Approved";
+    if (!isSuperAdmin) {
+      queryStatus = "Approved";
+    }
 
-    // 1. Data Visibility Filtering: Non-admin users only see images of programs they are registered in.
+    const query: Record<string, any> = {};
+    if (queryStatus !== "ALL") {
+      query.status = queryStatus;
+    }
+
+    // 2. Program level visibility for teachers/students (non-admins)
+    const isAdmin = ["SUPER_ADMIN", "STATE_ADMIN", "DISTRICT_ADMIN", "MANDAL_ADMIN", "VENUE_ADMIN"].includes(userRole);
     if (!isAdmin) {
       const email = session.user.email || "";
       const employeeId = (session.user as any).employeeId || "";
@@ -40,9 +53,9 @@ export async function GET(req: NextRequest) {
       
       const userProgramIds = registrations.map(r => r.program).filter(Boolean);
       
-      if (program) {
-        if (userProgramIds.some(id => String(id) === String(program))) {
-          query.program = program;
+      if (programId) {
+        if (userProgramIds.some(id => String(id) === String(programId))) {
+          query.program = programId;
         } else {
           return NextResponse.json({ data: [], total: 0, page, limit, totalPages: 0 });
         }
@@ -50,48 +63,41 @@ export async function GET(req: NextRequest) {
         query.program = { $in: userProgramIds };
       }
     } else {
-      if (program) {
-        query.program = program;
+      if (programId) {
+        query.program = programId;
       }
     }
 
-    // 2. Status filter
-    if (status !== "ALL") {
-      query.status = status;
-    }
-
-    // 3. Category filter
+    // Category Filter
     if (category && category !== "ALL") {
       query.category = category;
     }
 
-    // 4. Platform filter
+    // Platform Filter
     if (platform && platform !== "ALL") {
       query.platform = platform;
     }
 
-    // 5. Search query (matches title, description, or programName)
+    // Search query (matches title, description, or programName)
     if (search) {
-      const matchingPrograms = await Program.find({
-        programName: { $regex: search, $options: "i" }
-      }).select("_id").lean();
-      
-      const matchedProgramIds = matchingPrograms.map(p => p._id);
-      
       query.$or = [
-        { title: { $regex: search, $options: "i" } },
+        { programName: { $regex: search, $options: "i" } },
         { description: { $regex: search, $options: "i" } },
-        { program: { $in: matchedProgramIds } }
+        { category: { $regex: search, $options: "i" } },
+        { title: { $regex: search, $options: "i" } }
       ];
     }
 
+    // Sort definition (Latest First or Oldest First)
+    const sortDirection = sortOrder === "oldest" ? 1 : -1;
     const skip = (page - 1) * limit;
+
     const [data, total] = await Promise.all([
       Photo.find(query)
         .populate("program", "programName status department trainingYear")
-        .populate("uploadedBy", "name role")
+        .populate("requestedBy", "name role")
         .populate("approvedBy", "name")
-        .sort({ uploadDate: -1 })
+        .sort({ uploadDate: sortDirection })
         .skip(skip)
         .limit(limit)
         .lean(),
@@ -117,18 +123,22 @@ export async function POST(req: NextRequest) {
     const session = token ? { user: token } : null;
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+    const userRole = (session.user as any).role || "TEACHER";
+    const isSuperAdmin = userRole === "SUPER_ADMIN";
+
+    // Non-Super Admins are not allowed to upload directly, only submit requests.
+    // Super Admin is the ONLY user who bypasses approval (goes straight to Approved).
     const formData = await req.formData();
     const file = formData.get("file") as File;
-    const program = formData.get("program") as string;
+    const programId = formData.get("program") as string;
     const category = formData.get("category") as string;
-    const title = formData.get("title") as string;
     const description = formData.get("description") as string;
     const platform = formData.get("platform") as string;
-    const department = formData.get("department") as string;
+    const eventDateStr = formData.get("eventDate") as string;
+    const additionalNotes = formData.get("additionalNotes") as string;
+    const title = formData.get("title") as string;
 
     if (!file) return NextResponse.json({ error: "No file provided" }, { status: 400 });
-    if (!program) return NextResponse.json({ error: "Program field is required" }, { status: 400 });
-    if (!title) return NextResponse.json({ error: "Title field is required" }, { status: 400 });
     if (!category) return NextResponse.json({ error: "Category field is required" }, { status: 400 });
 
     const maxSize = 10 * 1024 * 1024; // 10MB
@@ -145,31 +155,49 @@ export async function POST(req: NextRequest) {
 
     await connectDB();
 
-    const userRole = (session.user as any).role || "TEACHER";
-    const isAdmin = ["SUPER_ADMIN", "STATE_ADMIN", "DISTRICT_ADMIN", "MANDAL_ADMIN", "VENUE_ADMIN"].includes(userRole);
+    // Fetch corresponding program name
+    let foundProgramName = "General / Independent Program";
+    if (programId) {
+      const progDoc = await Program.findById(programId).select("programName").lean();
+      if (progDoc) {
+        foundProgramName = (progDoc as any).programName;
+      }
+    }
 
-    const status = isAdmin ? "APPROVED" : "PENDING";
     const userId = (session.user as any).id || (session.user as any)._id;
+    const status = isSuperAdmin ? "Approved" : "Pending";
+    const eventDate = eventDateStr ? new Date(eventDateStr) : undefined;
 
-    // Build photo object supplying both old and new schema fields for complete compatibility
     const photo = await Photo.create({
-      program,
-      title,
+      image: dataUrl,
+      url: dataUrl, // Backward compatibility fallback
+      program: programId || undefined,
+      programName: foundProgramName,
       description: description || "",
-      url: dataUrl,
       category,
-      status,
-      uploadedBy: userId,
       platform: platform || "Gnana Prakash",
-      department: department || "School Education",
-      approvedBy: isAdmin ? userId : undefined,
-      approvalDate: isAdmin ? new Date() : undefined,
-      filename: file.name || "uploaded_photo.jpg",
-      originalName: file.name || "uploaded_photo.jpg",
+      status,
+      requestedBy: userId,
+      uploadDate: new Date(),
+      approvedBy: isSuperAdmin ? userId : undefined,
+      approvalDate: isSuperAdmin ? new Date() : undefined,
+      eventDate,
+      additionalNotes: additionalNotes || "",
+      title: title || file.name || "Image Title",
+      filename: file.name || "image.jpg",
+      originalName: file.name || "image.jpg",
       size: file.size || 0
     });
 
-    return NextResponse.json({ success: true, data: photo }, { status: 201 });
+    const userMessage = isSuperAdmin 
+      ? "Image request approved successfully." 
+      : "Your image upload request has been submitted successfully and is awaiting Super Admin approval.";
+
+    return NextResponse.json({ 
+      success: true, 
+      message: userMessage, 
+      data: photo 
+    }, { status: 201 });
   } catch (error: any) {
     console.error("POST photo error:", error);
     return NextResponse.json({ error: "Upload failed: " + error.message }, { status: 500 });

@@ -85,12 +85,13 @@ export const PARTICIPANT_CATEGORIES = [
 
 export const PHOTO_CATEGORIES = [
   "Food Distribution",
-  "Inauguration Programs",
-  "Classes & Workshops",
-  "Residential Programs",
+  "Inauguration",
+  "Classes",
+  "Residency Programs",
+  "Workshops",
   "Events",
-  "Awareness Campaigns",
-  "Training Sessions",
+  "Awareness Programs",
+  "Training Programs",
   "Other Activities"
 ];
 

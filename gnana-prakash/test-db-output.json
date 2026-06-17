@@ -1,0 +1,108 @@
+{
+  "programsCount": 7,
+  "usersCount": 7,
+  "programs": [
+    {
+      "_id": "6a3270c007f0be9e26297473",
+      "programName": "Primary Teacher Mathematics Skill Enhancement Program",
+      "district": "6a3270bd07f0be9e2629739f",
+      "mandal": "6a3270bd07f0be9e262973d7",
+      "venue": "6a3270bd07f0be9e2629742f",
+      "status": "COMPLETED"
+    },
+    {
+      "_id": "6a3270c007f0be9e262974e9",
+      "programName": "English Language Intensive Pedagogy Training",
+      "district": "6a3270bd07f0be9e26297395",
+      "mandal": "6a3270bd07f0be9e262973b9",
+      "venue": "6a3270bd07f0be9e26297411",
+      "status": "COMPLETED"
+    },
+    {
+      "_id": "6a3270c107f0be9e2629753c",
+      "programName": "Science Lab and Inquiry-based Learning Course",
+      "district": "6a3270bd07f0be9e2629739d",
+      "mandal": "6a3270bd07f0be9e262973d1",
+      "venue": "6a3270bd07f0be9e26297429",
+      "status": "COMPLETED"
+    },
+    {
+      "_id": "6a3270c107f0be9e26297596",
+      "programName": "ICT and Digital Classroom Tools Training for HMs",
+      "district": "6a3270bd07f0be9e262973a0",
+      "mandal": "6a3270bd07f0be9e262973da",
+      "venue": "6a3270bd07f0be9e26297432",
+      "status": "COMPLETED"
+    },
+    {
+      "_id": "6a3270c207f0be9e26297619",
+      "programName": "Child Psychology & Inclusive Classroom Management",
+      "district": "6a3270bd07f0be9e2629739b",
+      "mandal": "6a3270bd07f0be9e262973cb",
+      "venue": "6a3270bd07f0be9e26297423",
+      "status": "COMPLETED"
+    },
+    {
+      "_id": "6a3270c207f0be9e26297680",
+      "programName": "Foundational Literacy & Numeracy (FLN) Teacher Training",
+      "district": "6a3270bd07f0be9e2629739f",
+      "mandal": "6a3270bd07f0be9e262973d7",
+      "venue": "6a3270bd07f0be9e2629742f",
+      "status": "COMPLETED"
+    },
+    {
+      "_id": "6a3270c307f0be9e262976f6",
+      "programName": "Gnana Prakash Year - 3 Certificate Course Training for SGTs at Ground Level",
+      "district": "6a3270bd07f0be9e26297394",
+      "mandal": "6a3270bd07f0be9e262973b6",
+      "venue": "6a3270bd07f0be9e2629740e",
+      "status": "ACTIVE"
+    }
+  ],
+  "users": [
+    {
+      "_id": "6a3270bd07f0be9e26297464",
+      "email": "admin@gnana.edu.in",
+      "role": "SUPER_ADMIN"
+    },
+    {
+      "_id": "6a3270bd07f0be9e26297467",
+      "email": "state@gnana.edu.in",
+      "role": "STATE_ADMIN"
+    },
+    {
+      "_id": "6a3270be07f0be9e26297469",
+      "email": "dist-anakapalli@gnana.edu.in",
+      "role": "DISTRICT_ADMIN",
+      "district": "6a3270bd07f0be9e26297395"
+    },
+    {
+      "_id": "6a3270be07f0be9e2629746b",
+      "email": "dist-krishna@gnana.edu.in",
+      "role": "DISTRICT_ADMIN",
+      "district": "6a3270bd07f0be9e2629739f"
+    },
+    {
+      "_id": "6a3270bf07f0be9e2629746d",
+      "email": "venue-paderu@gnana.edu.in",
+      "role": "MANDAL_ADMIN",
+      "district": "6a3270bd07f0be9e26297394",
+      "mandal": "6a3270bd07f0be9e262973b6"
+    },
+    {
+      "_id": "6a3270bf07f0be9e2629746f",
+      "email": "venue-vjw@gnana.edu.in",
+      "role": "MANDAL_ADMIN",
+      "district": "6a3270bd07f0be9e2629739f",
+      "mandal": "6a3270bd07f0be9e262973d7"
+    },
+    {
+      "_id": "6a3270bf07f0be9e26297471",
+      "email": "teacher1@gnana.edu.in",
+      "role": "TEACHER",
+      "district": "6a3270bd07f0be9e2629739f",
+      "mandal": "6a3270bd07f0be9e262973d7",
+      "venue": "6a3270bd07f0be9e2629742f"
+    }
+  ]
+}

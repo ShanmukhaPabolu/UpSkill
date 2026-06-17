@@ -2,14 +2,14 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { 
-  Upload, Image as ImageIcon, Check, X, Loader2, Eye, Filter, 
+  Upload, Image as ImageIcon, Check, X, Loader2, Filter, 
   Search, SlidersHorizontal, Calendar, User, Building, Trash2, 
-  CheckCircle, AlertTriangle, Sparkles, FolderHeart
+  CheckCircle, AlertTriangle, Edit3, ArrowUpDown, Info
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -33,6 +33,7 @@ export default function PhotosClient() {
   const [categoryFilter, setCategoryFilter] = useState("ALL");
   const [platformFilter, setPlatformFilter] = useState("ALL");
   const [programFilter, setProgramFilter] = useState("ALL");
+  const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
   const [selectedPhoto, setSelectedPhoto] = useState<Record<string, any> | null>(null);
 
   // Upload Form controls
@@ -41,15 +42,27 @@ export default function PhotosClient() {
   const [uploadCategory, setUploadCategory] = useState(PHOTO_CATEGORIES[0] || "Other Activities");
   const [uploadProgramId, setUploadProgramId] = useState("");
   const [uploadPlatform, setUploadPlatform] = useState("Gnana Prakash");
-  const [uploadDepartment, setUploadDepartment] = useState("School Education");
+  const [uploadEventDate, setUploadEventDate] = useState("");
+  const [uploadAdditionalNotes, setUploadAdditionalNotes] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
-  const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [uploadSuccessMessage, setUploadSuccessMessage] = useState("");
 
   // Approval panel controls
   const [approvalRemarks, setApprovalRemarks] = useState<Record<string, string>>({});
+
+  // Metadata Edit Form controls
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editCategory, setEditCategory] = useState("");
+  const [editPlatform, setEditPlatform] = useState("");
+  const [editEventDate, setEditEventDate] = useState("");
+  const [editAdditionalNotes, setEditAdditionalNotes] = useState("");
+  const [editProgramId, setEditProgramId] = useState("");
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const qc = useQueryClient();
@@ -58,64 +71,107 @@ export default function PhotosClient() {
   useEffect(() => {
     fetch("/api/auth/custom-session")
       .then(r => r.json())
-      .then(d => { if (d.user) setUser(d.user); })
+      .then(d => { 
+        if (d.user) {
+          setUser(d.user); 
+          qc.invalidateQueries({ queryKey: ["programs_list_media"] });
+        } 
+      })
       .catch(console.error);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const userRole = user?.role || "TEACHER";
+  const userRole = user?.role || "STUDENT";
   const userEmail = user?.email || "";
-  const isAdmin = ["SUPER_ADMIN", "STATE_ADMIN", "DISTRICT_ADMIN", "MANDAL_ADMIN", "VENUE_ADMIN"].includes(userRole);
+  const isSuperAdmin = userRole === "SUPER_ADMIN";
+  
+  // Admins & Teachers can submit upload requests, Super Admin uploads directly.
+  const isAllowedToUpload = ["SUPER_ADMIN", "STATE_ADMIN", "DISTRICT_ADMIN", "MANDAL_ADMIN", "VENUE_ADMIN", "TEACHER"].includes(userRole);
 
-  // Fetch programs for select dropdown (Admins get all, Teachers get enrolled)
-  const { data: adminProgramsData } = useQuery({
-    queryKey: ["programs_list_media", isAdmin],
+  // Fetch programs for select dropdown (handles scoping at the API level based on user role)
+  const { data: programsData, isLoading: isLoadingPrograms } = useQuery({
+    queryKey: ["programs_list_media", userRole],
     queryFn: async () => {
-      const res = await fetch("/api/programs?limit=100");
-      return res.json();
+      const res = await fetch("/api/programs?limit=100&bypassScope=true");
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || `HTTP error ${res.status}`);
+      }
+      const data = await res.json();
+      if (data.error) {
+        throw new Error(data.error);
+      }
+      return data;
     },
-    enabled: isAdmin,
+    enabled: !!userRole && userRole !== "STUDENT",
   });
 
-  const { data: teacherProgramsData } = useQuery({
-    queryKey: ["teacher_programs_list_media", userEmail],
-    queryFn: async () => {
-      if (!userEmail) return null;
-      const res = await fetch(`/api/attendance/participants?email=${userEmail}`);
-      return res.json();
-    },
-    enabled: !isAdmin && !!userEmail,
+  const programsOptions = programsData?.data || [];
+
+  console.log("DEBUG PHOTOSCLIENT DROPDOWN:", {
+    userRole,
+    userEmail,
+    programsData,
+    programsOptions,
+    isAllowedToUpload
   });
 
-  const programsOptions = isAdmin 
-    ? (adminProgramsData?.data || []) 
-    : (teacherProgramsData?.data || []).map((p: any) => ({
-        _id: p.programId,
-        programName: p.programName
-      }));
-
-  // Fetch Approved Photos
+  // Fetch Photos based on search, category, sort, and permissions
   const { data: approvedPhotos, isLoading: isLoadingApproved } = useQuery({
-    queryKey: ["photos_approved", searchQuery, categoryFilter, platformFilter, programFilter],
+    queryKey: ["photos_approved", searchQuery, categoryFilter, platformFilter, programFilter, sortOrder],
     queryFn: async () => {
-      const params = new URLSearchParams({ status: "APPROVED", limit: "48" });
+      const params = new URLSearchParams({ status: "Approved", limit: "48", sort: sortOrder });
       if (searchQuery) params.set("search", searchQuery);
       if (categoryFilter && categoryFilter !== "ALL") params.set("category", categoryFilter);
       if (platformFilter && platformFilter !== "ALL") params.set("platform", platformFilter);
       if (programFilter && programFilter !== "ALL") params.set("program", programFilter);
       
       const res = await fetch(`/api/photos?${params.toString()}`);
-      return res.json();
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || `HTTP error ${res.status}`);
+      }
+      const data = await res.json();
+      if (data.error) {
+        throw new Error(data.error);
+      }
+      return data;
     }
   });
 
-  // Fetch Pending Photos (Admins only)
+  // Fetch Pending/Rejected Photos (Super Admin only)
   const { data: pendingPhotos, isLoading: isLoadingPending } = useQuery({
     queryKey: ["photos_pending"],
     queryFn: async () => {
-      const res = await fetch("/api/photos?status=PENDING&limit=100");
-      return res.json();
+      const res = await fetch("/api/photos?status=Pending&limit=100");
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || `HTTP error ${res.status}`);
+      }
+      const data = await res.json();
+      if (data.error) {
+        throw new Error(data.error);
+      }
+      return data;
     },
-    enabled: isAdmin,
+    enabled: isSuperAdmin,
+  });
+
+  const { data: rejectedPhotos, isLoading: isLoadingRejected } = useQuery({
+    queryKey: ["photos_rejected"],
+    queryFn: async () => {
+      const res = await fetch("/api/photos?status=Rejected&limit=100");
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || `HTTP error ${res.status}`);
+      }
+      const data = await res.json();
+      if (data.error) {
+        throw new Error(data.error);
+      }
+      return data;
+    },
+    enabled: isSuperAdmin,
   });
 
   // Handle file select
@@ -145,7 +201,7 @@ export default function PhotosClient() {
       return;
     }
     if (!uploadTitle.trim()) {
-      setUploadError("Please enter a title for this image.");
+      setUploadError("Please enter an image title.");
       return;
     }
     if (!uploadProgramId) {
@@ -155,7 +211,7 @@ export default function PhotosClient() {
 
     setIsUploading(true);
     setUploadError("");
-    setUploadSuccess(false);
+    setUploadSuccessMessage("");
 
     try {
       const formData = new FormData();
@@ -165,7 +221,8 @@ export default function PhotosClient() {
       formData.append("category", uploadCategory);
       formData.append("program", uploadProgramId);
       formData.append("platform", uploadPlatform);
-      formData.append("department", uploadDepartment);
+      if (uploadEventDate) formData.append("eventDate", uploadEventDate);
+      formData.append("additionalNotes", uploadAdditionalNotes);
 
       const res = await fetch("/api/photos", {
         method: "POST",
@@ -177,16 +234,20 @@ export default function PhotosClient() {
         throw new Error(errData.error || "Upload failed");
       }
 
-      setUploadSuccess(true);
+      const resData = await res.json();
+      setUploadSuccessMessage(resData.message || "Upload submitted successfully.");
+      
+      // Clear inputs
       setUploadTitle("");
       setUploadDescription("");
+      setUploadAdditionalNotes("");
+      setUploadEventDate("");
       setSelectedFile(null);
       setFilePreview(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
       
-      // Invalidate queries to reload gallery
       qc.invalidateQueries({ queryKey: ["photos_approved"] });
-      if (isAdmin) qc.invalidateQueries({ queryKey: ["photos_pending"] });
+      if (isSuperAdmin) qc.invalidateQueries({ queryKey: ["photos_pending"] });
     } catch (err: any) {
       setUploadError(err.message || "Something went wrong.");
     } finally {
@@ -202,16 +263,20 @@ export default function PhotosClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, remarks: remarks || "" })
       });
-      if (!res.ok) throw new Error("Approval action failed");
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "Approval action failed");
+      }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["photos_approved"] });
       qc.invalidateQueries({ queryKey: ["photos_pending"] });
-      alert("Status updated successfully.");
+      qc.invalidateQueries({ queryKey: ["photos_rejected"] });
+      alert(data.message || "Status updated successfully.");
     },
-    onError: (err) => {
-      alert("Error taking action: " + err.message);
+    onError: (err: any) => {
+      alert("Error: " + err.message);
     }
   });
 
@@ -227,6 +292,7 @@ export default function PhotosClient() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["photos_approved"] });
       qc.invalidateQueries({ queryKey: ["photos_pending"] });
+      qc.invalidateQueries({ queryKey: ["photos_rejected"] });
       setSelectedPhoto(null);
       alert("Image deleted successfully.");
     },
@@ -235,7 +301,50 @@ export default function PhotosClient() {
     }
   });
 
-  // Fetch unique platforms list for filtering
+  // Edit Metadata Mode
+  const startEditing = () => {
+    if (!selectedPhoto) return;
+    setEditTitle(selectedPhoto.title || selectedPhoto.filename || "");
+    setEditDescription(selectedPhoto.description || "");
+    setEditCategory(selectedPhoto.category || PHOTO_CATEGORIES[0]);
+    setEditPlatform(selectedPhoto.platform || "Gnana Prakash");
+    setEditEventDate(selectedPhoto.eventDate ? selectedPhoto.eventDate.split("T")[0] : "");
+    setEditAdditionalNotes(selectedPhoto.additionalNotes || "");
+    setEditProgramId(selectedPhoto.program?._id || selectedPhoto.program || "");
+    setIsEditing(true);
+  };
+
+  const saveMetadataEdit = async () => {
+    if (!selectedPhoto) return;
+    setIsSavingEdit(true);
+    try {
+      const res = await fetch(`/api/photos/${selectedPhoto._id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: editTitle,
+          description: editDescription,
+          category: editCategory,
+          platform: editPlatform,
+          eventDate: editEventDate || null,
+          additionalNotes: editAdditionalNotes,
+          programId: editProgramId
+        })
+      });
+
+      if (!res.ok) throw new Error("Failed to save changes");
+      const updated = await res.json();
+      setSelectedPhoto(updated.data);
+      setIsEditing(false);
+      qc.invalidateQueries({ queryKey: ["photos_approved"] });
+      alert("Metadata updated successfully.");
+    } catch (err: any) {
+      alert("Error editing metadata: " + err.message);
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
   const platformsList = ["Gnana Prakash", "School Education", "SS Office", "DEO Office"];
 
   return (
@@ -244,36 +353,38 @@ export default function PhotosClient() {
       <div className="flex border-b border-slate-200 gap-1 bg-slate-50/50 p-1 rounded-xl">
         <button
           onClick={() => setActiveTab("gallery")}
-          className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg text-xs font-bold transition-all ${
+          className={`flex-grow sm:flex-initial flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg text-xs font-bold transition-all ${
             activeTab === "gallery"
               ? "bg-white shadow-sm border border-slate-100 text-brand-600"
               : "text-slate-500 hover:text-slate-800"
           }`}
         >
-          <ImageIcon className="w-4 h-4" /> Gallery Feed
+          <ImageIcon className="w-4 h-4" /> Approved Gallery
         </button>
 
-        <button
-          onClick={() => setActiveTab("upload")}
-          className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg text-xs font-bold transition-all ${
-            activeTab === "upload"
-              ? "bg-white shadow-sm border border-slate-100 text-brand-600"
-              : "text-slate-500 hover:text-slate-800"
-          }`}
-        >
-          <Upload className="w-4 h-4" /> {isAdmin ? "Direct Upload" : "Submit Request"}
-        </button>
+        {isAllowedToUpload && (
+          <button
+            onClick={() => setActiveTab("upload")}
+            className={`flex-grow sm:flex-initial flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg text-xs font-bold transition-all ${
+              activeTab === "upload"
+                ? "bg-white shadow-sm border border-slate-100 text-brand-600"
+                : "text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            <Upload className="w-4 h-4" /> Request Upload
+          </button>
+        )}
 
-        {isAdmin && (
+        {isSuperAdmin && (
           <button
             onClick={() => setActiveTab("approvals")}
-            className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg text-xs font-bold transition-all relative ${
+            className={`flex-grow sm:flex-initial flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg text-xs font-bold transition-all relative ${
               activeTab === "approvals"
                 ? "bg-white shadow-sm border border-slate-100 text-brand-600"
                 : "text-slate-500 hover:text-slate-800"
             }`}
           >
-            <SlidersHorizontal className="w-4 h-4" /> Approval Panel
+            <SlidersHorizontal className="w-4 h-4" /> Super Admin Approvals
             {pendingPhotos?.total > 0 && (
               <span className="absolute -top-1 -right-1 bg-rose-500 text-white w-4.5 h-4.5 rounded-full text-[9px] flex items-center justify-center font-bold">
                 {pendingPhotos.total}
@@ -283,18 +394,18 @@ export default function PhotosClient() {
         )}
       </div>
 
-      {/* GALLERY TAB */}
+      {/* GALLERY FEED TAB */}
       {activeTab === "gallery" && (
         <div className="space-y-6">
-          {/* Controls Panel */}
+          {/* Filters Card */}
           <Card className="border-slate-100 shadow-sm">
             <CardContent className="p-4 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
                 {/* Search Bar */}
-                <div className="relative">
+                <div className="relative md:col-span-2">
                   <Search className="w-4.5 h-4.5 text-slate-400 absolute left-3 top-2.5" />
                   <Input
-                    placeholder="Search by Title, Desc, Program..."
+                    placeholder="Search by program, category, description..."
                     className="h-9 pl-9 text-xs"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -313,18 +424,6 @@ export default function PhotosClient() {
                   ))}
                 </select>
 
-                {/* Filter Platform */}
-                <select
-                  className="flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs focus:outline-none"
-                  value={platformFilter}
-                  onChange={(e) => setPlatformFilter(e.target.value)}
-                >
-                  <option value="ALL">All Platforms</option>
-                  {platformsList.map(p => (
-                    <option key={p} value={p}>{p}</option>
-                  ))}
-                </select>
-
                 {/* Filter Program */}
                 <select
                   className="flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs focus:outline-none"
@@ -338,6 +437,19 @@ export default function PhotosClient() {
                     </option>
                   ))}
                 </select>
+
+                {/* Sorting */}
+                <div className="flex border rounded-md items-center bg-white px-2.5">
+                  <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                  <select
+                    className="h-8 w-full border-0 bg-transparent text-xs focus:outline-none"
+                    value={sortOrder}
+                    onChange={(e) => setSortOrder(e.target.value as "latest" | "oldest")}
+                  >
+                    <option value="latest">Latest First</option>
+                    <option value="oldest">Oldest First</option>
+                  </select>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -351,7 +463,7 @@ export default function PhotosClient() {
                 <ImageIcon className="w-12 h-12 mb-3 opacity-20 text-brand-600" />
                 <p className="font-semibold text-slate-700">No Images Available</p>
                 <p className="text-xs text-slate-400 mt-1 max-w-sm text-center">
-                  There are no approved images matching these filter criteria, or none have been uploaded yet.
+                  There are no approved images matching these filters. Selecting a specific program displays all approved images associated with it.
                 </p>
               </CardContent>
             </Card>
@@ -360,14 +472,14 @@ export default function PhotosClient() {
               {approvedPhotos.data.map((photo: any) => (
                 <div 
                   key={photo._id} 
-                  onClick={() => setSelectedPhoto(photo)}
+                  onClick={() => { setSelectedPhoto(photo); setIsEditing(false); }}
                   className="group relative rounded-2xl overflow-hidden border border-slate-100 bg-slate-50 aspect-square shadow-sm hover:shadow-md cursor-pointer transition-all hover:-translate-y-0.5"
                 >
-                  <img src={photo.url} alt={photo.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3 text-white">
-                    <p className="text-[10px] font-bold text-brand-400 uppercase tracking-wide">{photo.category}</p>
-                    <p className="font-semibold text-xs truncate leading-snug">{photo.title}</p>
-                    <p className="text-[9px] text-slate-300 truncate leading-none mt-1">{photo.program?.programName}</p>
+                  <img src={photo.image || photo.url} alt={photo.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3.5 text-white">
+                    <p className="text-[10px] font-bold text-brand-400 uppercase tracking-wider">{photo.category}</p>
+                    <p className="font-semibold text-xs truncate leading-snug">{photo.title || "Image Title"}</p>
+                    <p className="text-[9px] text-slate-300 truncate leading-none mt-1">{photo.programName}</p>
                   </div>
                 </div>
               ))}
@@ -376,17 +488,17 @@ export default function PhotosClient() {
         </div>
       )}
 
-      {/* UPLOAD REQUEST / DIRECT UPLOAD TAB */}
-      {activeTab === "upload" && (
+      {/* UPLOAD REQUEST FORM TAB */}
+      {activeTab === "upload" && isAllowedToUpload && (
         <Card className="border-slate-100 shadow-sm max-w-2xl mx-auto">
           <CardHeader>
             <CardTitle className="text-base font-bold text-slate-900">
-              {isAdmin ? "Direct Image Upload" : "Submit Image Request"}
+              {isSuperAdmin ? "Direct Gallery Upload" : "Request Image Upload"}
             </CardTitle>
             <CardDescription>
-              {isAdmin 
-                ? "Upload images directly to the live image gallery. These will bypass approval."
-                : "Submit an image request. It will remain in a pending state until approved by an administrator."
+              {isSuperAdmin 
+                ? "As Super Admin, your uploads are saved directly and published to the gallery feed immediately."
+                : "Submit images for the gallery. Images will remain in Pending state and NOT show to users until approved by Super Admin."
               }
             </CardDescription>
           </CardHeader>
@@ -399,10 +511,10 @@ export default function PhotosClient() {
                 </div>
               )}
 
-              {uploadSuccess && (
+              {uploadSuccessMessage && (
                 <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold rounded-xl flex items-center gap-2">
                   <CheckCircle className="w-4 h-4 text-emerald-600" />
-                  <span>Upload submitted successfully! {isAdmin ? "Visible in gallery." : "Pending review."}</span>
+                  <span>{uploadSuccessMessage}</span>
                 </div>
               )}
 
@@ -438,7 +550,7 @@ export default function PhotosClient() {
                 <div className="space-y-1">
                   <Label className="text-xs font-bold text-slate-700">Image Title *</Label>
                   <Input 
-                    placeholder="Enter image title" 
+                    placeholder="Enter short title for image" 
                     className="h-9 text-xs" 
                     value={uploadTitle}
                     onChange={(e) => setUploadTitle(e.target.value)}
@@ -460,48 +572,69 @@ export default function PhotosClient() {
               </div>
 
               <div className="space-y-1">
-                <Label className="text-xs font-bold text-slate-700">Program Link *</Label>
-                <select 
-                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm focus:outline-none"
-                  value={uploadProgramId}
-                  onChange={(e) => setUploadProgramId(e.target.value)}
-                >
-                  <option value="">-- Choose training program --</option>
-                  {programsOptions.map((p: any) => (
-                    <option key={p._id} value={p._id}>{p.programName}</option>
-                  ))}
-                </select>
+                <Label className="text-xs font-bold text-slate-700">Program Name *</Label>
+                {isLoadingPrograms ? (
+                  <div className="flex items-center text-xs text-slate-500 py-2 border rounded-md px-3 bg-slate-50/50">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin mr-2 text-brand-600" />
+                    Loading training programs...
+                  </div>
+                ) : programsOptions.length === 0 ? (
+                  <div className="text-xs text-rose-500 font-semibold py-2 px-3 bg-rose-50 border border-rose-100 rounded-md">
+                    No training programs available. Please create a program first.
+                  </div>
+                ) : (
+                  <select 
+                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm focus:outline-none"
+                    value={uploadProgramId}
+                    onChange={(e) => setUploadProgramId(e.target.value)}
+                  >
+                    <option value="">-- Associate with training program --</option>
+                    {programsOptions.map((p: any) => (
+                      <option key={p._id} value={p._id}>{p.programName}</option>
+                    ))}
+                  </select>
+                )}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-1">
-                  <Label className="text-xs font-bold text-slate-700">Platform/Department</Label>
+                  <Label className="text-xs font-bold text-slate-700">Platform</Label>
                   <Input 
-                    placeholder="Platform e.g. Gnana Prakash" 
+                    placeholder="e.g. Gnana Prakash" 
                     className="h-9 text-xs" 
                     value={uploadPlatform}
                     onChange={(e) => setUploadPlatform(e.target.value)}
                   />
                 </div>
 
-                <div className="space-y-1">
-                  <Label className="text-xs font-bold text-slate-700">Department/Office</Label>
+                <div className="space-y-1 md:col-span-2">
+                  <Label className="text-xs font-bold text-slate-700">Event Date</Label>
                   <Input 
-                    placeholder="Department e.g. School Education" 
+                    type="date"
                     className="h-9 text-xs" 
-                    value={uploadDepartment}
-                    onChange={(e) => setUploadDepartment(e.target.value)}
+                    value={uploadEventDate}
+                    onChange={(e) => setUploadEventDate(e.target.value)}
                   />
                 </div>
               </div>
 
               <div className="space-y-1">
-                <Label className="text-xs font-bold text-slate-700">Image Description</Label>
+                <Label className="text-xs font-bold text-slate-700">Program Description</Label>
                 <Textarea 
-                  placeholder="Enter short description or context of training program..." 
-                  className="text-xs min-h-[80px]"
+                  placeholder="Enter context, workshop topic, or description..." 
+                  className="text-xs min-h-[70px]"
                   value={uploadDescription}
                   onChange={(e) => setUploadDescription(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-bold text-slate-700">Additional Notes</Label>
+                <Textarea 
+                  placeholder="Any extra feedback, trainer notes, or remarks..." 
+                  className="text-xs min-h-[60px]"
+                  value={uploadAdditionalNotes}
+                  onChange={(e) => setUploadAdditionalNotes(e.target.value)}
                 />
               </div>
 
@@ -512,7 +645,7 @@ export default function PhotosClient() {
                   className="bg-brand-600 hover:bg-brand-700 text-white font-bold h-10 px-8"
                 >
                   {isUploading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
-                  {isAdmin ? "Publish Directly" : "Submit Request"}
+                  {isSuperAdmin ? "Direct Publish" : "Submit Request"}
                 </Button>
               </div>
             </form>
@@ -520,115 +653,164 @@ export default function PhotosClient() {
         </Card>
       )}
 
-      {/* PENDING APPROVALS TAB (Admins only) */}
-      {activeTab === "approvals" && isAdmin && (
-        <div className="space-y-6">
-          {isLoadingPending ? (
-            <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 animate-spin text-brand-600" /></div>
-          ) : !pendingPhotos?.data?.length ? (
-            <Card className="border-slate-100 shadow-sm">
-              <CardContent className="flex flex-col items-center justify-center py-16 text-slate-500">
-                <CheckCircle className="w-12 h-12 mb-3 opacity-20 text-emerald-600" />
-                <p className="font-semibold text-slate-700">No Pending Requests</p>
-                <p className="text-xs text-slate-400 mt-1">
-                  All submitted image requests have been processed. Great job!
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {pendingPhotos.data.map((photo: any) => (
-                <Card key={photo._id} className="border-slate-100 shadow-sm overflow-hidden flex flex-col">
-                  {/* Image Container */}
-                  <div className="relative h-64 bg-slate-50 border-b border-slate-100">
-                    <img src={photo.url} alt={photo.title} className="w-full h-full object-contain" />
-                    <Badge className="absolute top-3 right-3 bg-amber-600 text-white font-bold uppercase tracking-wider text-[9px]">
-                      Pending Review
-                    </Badge>
+      {/* SUPER ADMIN APPROVALS TAB */}
+      {activeTab === "approvals" && isSuperAdmin && (
+        <div className="space-y-8">
+          {/* Pending Reviews */}
+          <div className="space-y-4">
+            <h2 className="text-sm font-bold text-slate-900 flex items-center gap-1.5 border-b pb-2">
+              <span className="w-2 h-2 rounded-full bg-amber-500"></span> Pending Reviews ({pendingPhotos?.total || 0})
+            </h2>
+
+            {isLoadingPending ? (
+              <div className="flex justify-center py-10"><Loader2 className="w-8 h-8 animate-spin text-brand-600" /></div>
+            ) : !pendingPhotos?.data?.length ? (
+              <Card className="border-slate-100 shadow-sm">
+                <CardContent className="flex flex-col items-center justify-center py-10 text-slate-500">
+                  <CheckCircle className="w-10 h-10 mb-2.5 opacity-20 text-emerald-600" />
+                  <p className="font-semibold text-slate-700 text-xs">No Pending Requests</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">All image requests have been processed.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {pendingPhotos.data.map((photo: any) => (
+                  <Card key={photo._id} className="border-slate-100 shadow-sm overflow-hidden flex flex-col">
+                    <div className="relative h-56 bg-slate-50 border-b border-slate-100">
+                      <img src={photo.image || photo.url} alt={photo.title} className="w-full h-full object-contain" />
+                      <Badge className="absolute top-3 right-3 bg-amber-600 text-white font-bold text-[9px] uppercase tracking-wider">
+                        Pending Approval
+                      </Badge>
+                    </div>
+
+                    <CardContent className="p-4.5 flex-1 flex flex-col justify-between space-y-4">
+                      <div className="space-y-3">
+                        <div>
+                          <Badge variant="outline" className="text-[9px] font-bold text-brand-600 uppercase border-brand-200">
+                            {photo.category}
+                          </Badge>
+                          <h3 className="font-bold text-sm text-slate-900 leading-snug mt-1">{photo.title || "Image File"}</h3>
+                          <p className="text-xs text-slate-500 mt-1">{photo.description || "No description provided."}</p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-xs border-t border-slate-50 pt-2.5">
+                          <div>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase">Program Name</p>
+                            <p className="font-semibold text-slate-700 truncate">{photo.programName}</p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase">Platform</p>
+                            <p className="font-semibold text-slate-700 truncate">{photo.platform}</p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase">Requested By</p>
+                            <p className="font-semibold text-slate-700 truncate">{photo.requestedBy?.name || "User"}</p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase">Request Date</p>
+                            <p className="font-semibold text-slate-700 truncate">{formatDate(photo.uploadDate)}</p>
+                          </div>
+                        </div>
+
+                        {/* Event Date & Notes */}
+                        {(photo.eventDate || photo.additionalNotes) && (
+                          <div className="bg-slate-50 p-2.5 rounded-lg text-xs space-y-1">
+                            {photo.eventDate && (
+                              <p className="text-[10px] text-slate-600">
+                                <strong>Event Date:</strong> {formatDate(photo.eventDate)}
+                              </p>
+                            )}
+                            {photo.additionalNotes && (
+                              <p className="text-[10px] text-slate-600">
+                                <strong>Notes:</strong> {photo.additionalNotes}
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="space-y-1 pt-1">
+                          <Label className="text-[9px] font-bold text-slate-500 uppercase">Rejection Remarks (Required if Rejecting)</Label>
+                          <Input 
+                            placeholder="e.g. Image quality is insufficient."
+                            className="h-8 text-xs"
+                            value={approvalRemarks[photo._id] || ""}
+                            onChange={(e) => setApprovalRemarks(prev => ({
+                              ...prev,
+                              [photo._id]: e.target.value
+                            }))}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 pt-2 border-t border-slate-100">
+                        <Button
+                          size="sm"
+                          onClick={() => actionMutation.mutate({ 
+                            id: photo._id, 
+                            action: "approve",
+                            remarks: approvalRemarks[photo._id]
+                          })}
+                          className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-8.5 text-xs gap-1"
+                        >
+                          <Check className="w-3.5 h-3.5" /> Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            if (!approvalRemarks[photo._id]?.trim()) {
+                              alert("Please enter a rejection reason in the remarks field before rejecting.");
+                              return;
+                            }
+                            actionMutation.mutate({ 
+                              id: photo._id, 
+                              action: "reject",
+                              remarks: approvalRemarks[photo._id]
+                            });
+                          }}
+                          className="flex-1 bg-rose-500 hover:bg-rose-600 text-white font-bold h-8.5 text-xs gap-1"
+                        >
+                          <X className="w-3.5 h-3.5" /> Reject
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Rejected List (Super Admin visibility) */}
+          <div className="space-y-4 pt-4">
+            <h2 className="text-sm font-bold text-slate-900 flex items-center gap-1.5 border-b pb-2">
+              <span className="w-2 h-2 rounded-full bg-rose-500"></span> Rejected Requests ({rejectedPhotos?.total || 0})
+            </h2>
+
+            {isLoadingRejected ? (
+              <div className="flex justify-center py-10"><Loader2 className="w-8 h-8 animate-spin text-brand-600" /></div>
+            ) : !rejectedPhotos?.data?.length ? (
+              <p className="text-slate-400 text-xs italic">No rejected requests in historical log.</p>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-4">
+                {rejectedPhotos.data.map((photo: any) => (
+                  <div 
+                    key={photo._id} 
+                    onClick={() => { setSelectedPhoto(photo); setIsEditing(false); }}
+                    className="group relative rounded-xl overflow-hidden border border-slate-200 bg-slate-50 aspect-square cursor-pointer hover:shadow"
+                  >
+                    <img src={photo.image || photo.url} alt={photo.title} className="w-full h-full object-cover grayscale opacity-70" />
+                    <div className="absolute inset-0 bg-black/60 flex flex-col justify-end p-2 text-white">
+                      <p className="text-[9px] font-bold text-rose-400 uppercase">Rejected</p>
+                      <p className="font-semibold text-[10px] truncate">{photo.title}</p>
+                    </div>
                   </div>
-
-                  {/* Metadata and Review Panel */}
-                  <CardContent className="p-5 flex-1 flex flex-col justify-between space-y-4">
-                    <div className="space-y-3">
-                      <div>
-                        <Badge variant="outline" className="text-[9px] font-bold text-brand-600 uppercase border-brand-200">
-                          {photo.category}
-                        </Badge>
-                        <h3 className="font-bold text-base text-slate-900 leading-snug mt-1">{photo.title}</h3>
-                        <p className="text-xs text-slate-500 mt-1">{photo.description || "No description provided."}</p>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3 text-xs border-t border-slate-50 pt-3">
-                        <div>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase">Program</p>
-                          <p className="font-semibold text-slate-800 truncate">{photo.program?.programName}</p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase">Uploaded By</p>
-                          <p className="font-semibold text-slate-800 truncate flex items-center gap-1">
-                            <User className="w-3.5 h-3.5 text-slate-400" />
-                            {photo.uploadedBy?.name || "User"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase">Platform/Dept</p>
-                          <p className="font-semibold text-slate-800 truncate">{photo.platform || "Gnana Prakash"}</p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase">Date Submitted</p>
-                          <p className="font-semibold text-slate-800 truncate">{formatDate(photo.uploadDate)}</p>
-                        </div>
-                      </div>
-
-                      {/* Approval Remarks Input */}
-                      <div className="space-y-1">
-                        <Label className="text-[10px] font-bold text-slate-500 uppercase">Review Remarks (Optional)</Label>
-                        <Input 
-                          placeholder="e.g. Approved for gallery publication"
-                          className="h-8 text-xs"
-                          value={approvalRemarks[photo._id] || ""}
-                          onChange={(e) => setApprovalRemarks(prev => ({
-                            ...prev,
-                            [photo._id]: e.target.value
-                          }))}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Action buttons */}
-                    <div className="flex gap-2.5 pt-3 border-t border-slate-100">
-                      <Button
-                        size="sm"
-                        onClick={() => actionMutation.mutate({ 
-                          id: photo._id, 
-                          action: "approve",
-                          remarks: approvalRemarks[photo._id]
-                        })}
-                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-9 gap-1.5"
-                      >
-                        <Check className="w-4 h-4" /> Approve
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={() => actionMutation.mutate({ 
-                          id: photo._id, 
-                          action: "reject",
-                          remarks: approvalRemarks[photo._id]
-                        })}
-                        className="flex-1 bg-rose-500 hover:bg-rose-600 text-white font-bold h-9 gap-1.5"
-                      >
-                        <X className="w-4 h-4" /> Reject
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
-      {/* DETAIL PREVIEW DIALOG */}
+      {/* DETAIL PREVIEW & METADATA EDIT DIALOG */}
       <Dialog open={!!selectedPhoto} onOpenChange={() => setSelectedPhoto(null)}>
         <DialogContent className="max-w-3xl overflow-hidden rounded-2xl border-none p-0 shadow-2xl">
           {selectedPhoto && (
@@ -636,74 +818,243 @@ export default function PhotosClient() {
               {/* Image box */}
               <div className="md:w-[55%] bg-slate-900 flex items-center justify-center min-h-[300px] md:max-h-[500px]">
                 <img 
-                  src={selectedPhoto.url} 
+                  src={selectedPhoto.image || selectedPhoto.url} 
                   alt={selectedPhoto.title} 
                   className="max-w-full max-h-[500px] object-contain"
                 />
               </div>
 
-              {/* Meta details side-pane */}
-              <div className="md:w-[45%] p-6 flex flex-col justify-between space-y-6 bg-white">
-                <div className="space-y-4">
-                  <div className="space-y-1.5">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <Badge className="bg-brand-600 text-white font-bold text-[9px] uppercase tracking-wider">
-                        {selectedPhoto.category}
-                      </Badge>
-                      <Badge variant="outline" className="text-[9px] font-bold text-slate-500 border-slate-200">
-                        {selectedPhoto.platform}
-                      </Badge>
+              {/* Details Pane */}
+              <div className="md:w-[45%] p-6 flex flex-col justify-between space-y-6 bg-white overflow-y-auto max-h-[500px]">
+                {!isEditing ? (
+                  <div className="space-y-4">
+                    <div className="space-y-1.5">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <Badge className="bg-brand-600 text-white font-bold text-[9px] uppercase tracking-wider">
+                          {selectedPhoto.category}
+                        </Badge>
+                        <Badge variant="outline" className="text-[9px] font-bold text-slate-500 border-slate-200">
+                          {selectedPhoto.platform}
+                        </Badge>
+                        <Badge 
+                          variant="outline"
+                          className={`text-[9px] font-bold ${
+                            selectedPhoto.status === "Approved" 
+                              ? "text-emerald-700 border-emerald-200 bg-emerald-50"
+                              : selectedPhoto.status === "Rejected"
+                              ? "text-rose-700 border-rose-200 bg-rose-50"
+                              : "text-amber-700 border-amber-200 bg-amber-50"
+                          }`}
+                        >
+                          {selectedPhoto.status}
+                        </Badge>
+                      </div>
+
+                      <DialogTitle className="text-base font-bold text-slate-900 leading-snug">
+                        {selectedPhoto.title || selectedPhoto.filename || "Image View"}
+                      </DialogTitle>
+                      
+                      <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                        {selectedPhoto.description || "No description provided."}
+                      </p>
                     </div>
-                    <DialogTitle className="text-lg font-bold text-slate-900 leading-snug">
-                      {selectedPhoto.title}
-                    </DialogTitle>
-                    <p className="text-xs text-slate-500 font-medium leading-relaxed">
-                      {selectedPhoto.description || "No description provided."}
-                    </p>
+
+                    {/* Metadata Table */}
+                    <div className="space-y-3.5 border-t border-slate-100 pt-4 text-xs">
+                      <div>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Program Link</p>
+                        <p className="font-semibold text-slate-700 leading-snug">{selectedPhoto.programName}</p>
+                      </div>
+
+                      {selectedPhoto.eventDate && (
+                        <div>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Event Date</p>
+                          <p className="font-semibold text-slate-700">{formatDate(selectedPhoto.eventDate)}</p>
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Requested By</p>
+                          <p className="font-semibold text-slate-700 truncate">{selectedPhoto.requestedBy?.name || "Anonymous"}</p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Request Date</p>
+                          <p className="font-semibold text-slate-700 truncate">{formatDate(selectedPhoto.uploadDate)}</p>
+                        </div>
+                      </div>
+
+                      {selectedPhoto.status === "Approved" && (
+                        <div className="grid grid-cols-2 gap-3 bg-slate-50 p-2 rounded-lg">
+                          <div>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Approved By</p>
+                            <p className="font-semibold text-emerald-700 truncate">{selectedPhoto.approvedBy?.name || "Super Admin"}</p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Approval Date</p>
+                            <p className="font-semibold text-emerald-700 truncate">{formatDate(selectedPhoto.approvalDate)}</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {selectedPhoto.status === "Rejected" && selectedPhoto.rejectionReason && (
+                        <div className="bg-rose-50 p-2.5 rounded-lg border border-rose-100">
+                          <p className="text-[9px] font-bold text-rose-500 uppercase tracking-wider">Rejection Reason</p>
+                          <p className="font-medium text-rose-800 mt-0.5">{selectedPhoto.rejectionReason}</p>
+                        </div>
+                      )}
+
+                      {selectedPhoto.additionalNotes && (
+                        <div className="bg-slate-50 p-2.5 rounded-lg">
+                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Additional Notes</p>
+                          <p className="text-slate-600 text-[10px] mt-0.5">{selectedPhoto.additionalNotes}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Metadata Editing and Deletion controls for Super Admin */}
+                    {isSuperAdmin && (
+                      <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={startEditing}
+                          className="text-xs gap-1.5 h-8 font-bold border-slate-200"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" /> Edit Metadata
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            if (confirm("Are you sure you want to permanently delete this photo from MongoDB?")) {
+                              deleteMutation.mutate(selectedPhoto._id);
+                            }
+                          }}
+                          className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 font-bold gap-1 text-xs h-8"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" /> Delete Image
+                        </Button>
+                      </div>
+                    )}
                   </div>
+                ) : (
+                  // Super Admin Metadata Editor View
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between pb-2 border-b">
+                      <h3 className="font-bold text-sm text-slate-900">Edit Image Metadata</h3>
+                      <button onClick={() => setIsEditing(false)} className="text-slate-400 hover:text-slate-600">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
 
-                  <div className="space-y-3.5 border-t border-slate-100 pt-4 text-xs">
-                    <div className="flex items-start gap-2.5">
-                      <Building className="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Program Link</p>
-                        <p className="font-semibold text-slate-700 leading-snug">{selectedPhoto.program?.programName || "Unknown Program"}</p>
-                        <p className="text-[10px] text-slate-500 font-medium mt-0.5">
-                          Timeline: {selectedPhoto.program?.trainingYear || "Year 3"} | {selectedPhoto.program?.department || "School Education"}
-                        </p>
+                    <div className="space-y-3.5">
+                      <div className="space-y-1">
+                        <Label className="text-[10px] font-bold text-slate-600 uppercase">Image Title</Label>
+                        <Input 
+                          value={editTitle}
+                          onChange={(e) => setEditTitle(e.target.value)}
+                          className="h-8.5 text-xs"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label className="text-[10px] font-bold text-slate-600 uppercase">Category</Label>
+                        <select 
+                          className="flex h-8.5 w-full rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm focus:outline-none"
+                          value={editCategory}
+                          onChange={(e) => setEditCategory(e.target.value)}
+                        >
+                          {PHOTO_CATEGORIES.map(c => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label className="text-[10px] font-bold text-slate-600 uppercase">Program Link</Label>
+                        {isLoadingPrograms ? (
+                          <div className="flex items-center text-xs text-slate-500 py-1.5 border rounded-md px-3 bg-slate-50/50">
+                            <Loader2 className="w-3 h-3 animate-spin mr-2 text-brand-600" />
+                            Loading training programs...
+                          </div>
+                        ) : programsOptions.length === 0 ? (
+                          <div className="text-xs text-rose-500 font-semibold py-1.5 px-3 bg-rose-50 border border-rose-100 rounded-md">
+                            No training programs available.
+                          </div>
+                        ) : (
+                          <select 
+                            className="flex h-8.5 w-full rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm focus:outline-none"
+                            value={editProgramId}
+                            onChange={(e) => setEditProgramId(e.target.value)}
+                          >
+                            <option value="">-- No Association --</option>
+                            {programsOptions.map((p: any) => (
+                              <option key={p._id} value={p._id}>{p.programName}</option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-[10px] font-bold text-slate-600 uppercase">Platform</Label>
+                          <Input 
+                            value={editPlatform}
+                            onChange={(e) => setEditPlatform(e.target.value)}
+                            className="h-8.5 text-xs"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px] font-bold text-slate-600 uppercase">Event Date</Label>
+                          <Input 
+                            type="date"
+                            value={editEventDate}
+                            onChange={(e) => setEditEventDate(e.target.value)}
+                            className="h-8.5 text-xs"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label className="text-[10px] font-bold text-slate-600 uppercase">Program Description</Label>
+                        <Textarea 
+                          value={editDescription}
+                          onChange={(e) => setEditDescription(e.target.value)}
+                          className="text-xs min-h-[60px]"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label className="text-[10px] font-bold text-slate-600 uppercase">Additional Notes</Label>
+                        <Textarea 
+                          value={editAdditionalNotes}
+                          onChange={(e) => setEditAdditionalNotes(e.target.value)}
+                          className="text-xs min-h-[50px]"
+                        />
                       </div>
                     </div>
 
-                    <div className="flex items-start gap-2.5">
-                      <User className="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Uploaded By</p>
-                        <p className="font-semibold text-slate-700">{selectedPhoto.uploadedBy?.name || "Anonymous"}</p>
-                        <p className="text-[10px] text-slate-500 font-medium">Role: {selectedPhoto.uploadedBy?.role?.replace("_", " ") || "TEACHER"}</p>
-                      </div>
+                    <div className="flex gap-2.5 pt-3 border-t justify-end">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setIsEditing(false)}
+                        className="text-xs font-bold"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={saveMetadataEdit}
+                        disabled={isSavingEdit}
+                        className="bg-brand-600 hover:bg-brand-700 text-white font-bold h-8.5 px-5 text-xs"
+                      >
+                        {isSavingEdit ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
+                        Save Changes
+                      </Button>
                     </div>
-
-                    <div className="flex items-start gap-2.5">
-                      <Calendar className="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Upload Date</p>
-                        <p className="font-semibold text-slate-700">{formatDate(selectedPhoto.uploadDate)}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Admins can delete directly from preview */}
-                {isAdmin && (
-                  <div className="pt-4 border-t border-slate-100 flex justify-end">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => deleteMutation.mutate(selectedPhoto._id)}
-                      className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 font-bold gap-1 text-xs"
-                    >
-                      <Trash2 className="w-4 h-4" /> Remove Image
-                    </Button>
                   </div>
                 )}
               </div>

@@ -1,45 +1,48 @@
 import mongoose, { Schema } from "mongoose";
 
-// Force delete from cache in development to ensure schema changes apply during hot reloading
 if (mongoose.models && mongoose.models.Photo) {
   delete (mongoose.models as any).Photo;
 }
 
 const PhotoSchema = new Schema({
-  program: { type: Schema.Types.ObjectId, ref: "Program", index: true, required: true },
-  venue: { type: Schema.Types.ObjectId, ref: "Venue" },
-  title: { type: String, required: true },
+  image: { type: String, required: true }, // Store base64 data URI here (transitionable to Cloudinary URLs later)
+  url: { type: String }, // Backward compatibility fallback field
+  program: { type: Schema.Types.ObjectId, ref: "Program", index: true }, // Corresponding program reference
+  programName: { type: String, required: true }, // Store program name directly as requested
   description: { type: String },
-  url: { type: String, required: true }, // Store base64 data URI here for MongoDB prototype storage
-  filename: { type: String, default: "" },
-  originalName: { type: String, default: "" },
   category: {
     type: String,
     enum: [
       "Food Distribution",
-      "Inauguration Programs",
-      "Classes & Workshops",
-      "Residential Programs",
+      "Inauguration",
+      "Classes",
+      "Residency Programs",
+      "Workshops",
       "Events",
-      "Awareness Campaigns",
-      "Training Sessions",
+      "Awareness Programs",
+      "Training Programs",
       "Other Activities"
     ],
     required: true,
   },
-  status: { type: String, enum: ["PENDING", "APPROVED", "REJECTED"], default: "PENDING" },
-  uploadedBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
-  uploadDate: { type: Date, default: Date.now },
-  approvedBy: { type: Schema.Types.ObjectId, ref: "User" },
-  approvalDate: { type: Date },
-  remarks: { type: String },
-  size: { type: Number, default: 0 },
-  tags: [{ type: String }],
   platform: { type: String, default: "Gnana Prakash" },
-  department: { type: String, default: "School Education" }
+  status: { type: String, enum: ["Pending", "Approved", "Rejected"], default: "Pending", index: true },
+  requestedBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
+  approvedBy: { type: Schema.Types.ObjectId, ref: "User" },
+  uploadDate: { type: Date, default: Date.now },
+  approvalDate: { type: Date },
+  eventDate: { type: Date },
+  additionalNotes: { type: String },
+  rejectionReason: { type: String }, // Optional reason provided by Super Admin when rejecting
+  
+  // Legacy fields fallback compatibility
+  title: { type: String },
+  filename: { type: String },
+  originalName: { type: String },
+  size: { type: Number }
 }, { timestamps: true });
 
-PhotoSchema.index({ program: 1, status: 1 });
-PhotoSchema.index({ category: 1, status: 1 });
+PhotoSchema.index({ status: 1 });
+PhotoSchema.index({ category: 1 });
 
 export default mongoose.models.Photo || mongoose.model("Photo", PhotoSchema);
