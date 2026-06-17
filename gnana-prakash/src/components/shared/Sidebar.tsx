@@ -138,8 +138,8 @@ export default function Sidebar() {
       <div className="flex items-center gap-3 p-4 border-b border-sidebar-border select-none">
         <div 
           className="flex-shrink-0 w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center cursor-pointer hover:bg-brand-700 transition-colors"
-          onClick={() => router.push(navItems[0]?.href || "/")}
-          title="Go to Dashboard"
+          onClick={() => collapsed ? setCollapsed(false) : router.push(navItems[0]?.href || "/")}
+          title={collapsed ? "Expand sidebar" : "Go to Dashboard"}
         >
           <GraduationCap className="w-4 h-4 text-white" />
         </div>
@@ -155,7 +155,7 @@ export default function Sidebar() {
             <div 
               className="text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors ml-auto cursor-pointer p-1 rounded hover:bg-sidebar-accent/50"
               onClick={() => setCollapsed(!collapsed)}
-              title="Toggle sidebar"
+              title="Collapse sidebar"
             >
               <ChevronDown className={cn("w-4 h-4 transition-transform", collapsed ? "-rotate-90" : "rotate-90")} />
             </div>
