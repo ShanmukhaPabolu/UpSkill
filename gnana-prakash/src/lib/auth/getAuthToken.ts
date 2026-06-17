@@ -32,6 +32,9 @@ export async function getAuthToken(req: NextRequest): Promise<JWT | null> {
       secret,
       salt: tokenCookie.name,
     });
+    if (token && token.sub) {
+      (token as any).id = token.sub;
+    }
     return token;
   } catch {
     // Silently ignore decode errors (likely an old or invalid token)

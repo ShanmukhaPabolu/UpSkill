@@ -57,6 +57,12 @@ export default function VenuesClient() {
         <div className="flex justify-center h-48 items-center">
           <Loader2 className="w-6 h-6 animate-spin text-brand-600" />
         </div>
+      ) : !data?.data?.length ? (
+        <div className="flex flex-col items-center justify-center h-48 text-muted-foreground border rounded-xl bg-card">
+          <MapPin className="w-12 h-12 mb-3 opacity-20" />
+          <p className="font-medium">No venues found</p>
+          <p className="text-sm mt-1">Add a new venue or try a different search</p>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {data?.data?.map((venue: Record<string, any>) => (
