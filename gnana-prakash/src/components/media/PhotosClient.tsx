@@ -382,7 +382,7 @@ export default function PhotosClient() {
           <ImageIcon className="w-4 h-4" /> Approved Gallery
         </button>
 
-        {isAllowedToUpload && (
+        {isAllowedToUpload && !isSuperAdmin && (
           <button
             onClick={() => setActiveTab("upload")}
             className={`flex-grow sm:flex-initial flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg text-xs font-bold transition-all ${
@@ -509,7 +509,7 @@ export default function PhotosClient() {
       )}
 
       {/* UPLOAD REQUEST FORM TAB */}
-      {activeTab === "upload" && isAllowedToUpload && (
+      {activeTab === "upload" && isAllowedToUpload && !isSuperAdmin && (
         <Card className="border-slate-100 shadow-sm max-w-2xl mx-auto">
           <CardHeader>
             <CardTitle className="text-base font-bold text-slate-900">
