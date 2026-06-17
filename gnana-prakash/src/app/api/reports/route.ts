@@ -41,9 +41,9 @@ export async function GET(req: NextRequest) {
       if (from || to) Object.assign(query, dateQuery("date"));
       if (district) {
         const programs = await Program.find({ district }).select("_id").lean();
-        const programIds = programs.map(p => p._id);
+        const programIds = programs.map(p => String(p._id));
         if (query.program) {
-          if (!programIds.some(id => id.toString() === query.program.toString())) {
+          if (!programIds.includes(query.program.toString())) {
             return NextResponse.json([]);
           }
         } else {
@@ -85,9 +85,9 @@ export async function GET(req: NextRequest) {
       if (from || to) Object.assign(query, dateQuery("date"));
       if (district) {
         const programs = await Program.find({ district }).select("_id").lean();
-        const programIds = programs.map(p => p._id);
+        const programIds = programs.map(p => String(p._id));
         if (query.program) {
-          if (!programIds.some(id => id.toString() === query.program.toString())) {
+          if (!programIds.includes(query.program.toString())) {
             return NextResponse.json([]);
           }
         } else {
@@ -102,9 +102,9 @@ export async function GET(req: NextRequest) {
       if (from || to) Object.assign(query, dateQuery("uploadDate"));
       if (district) {
         const programs = await Program.find({ district }).select("_id").lean();
-        const programIds = programs.map(p => p._id);
+        const programIds = programs.map(p => String(p._id));
         if (query.program) {
-          if (!programIds.some(id => id.toString() === query.program.toString())) {
+          if (!programIds.includes(query.program.toString())) {
             return NextResponse.json([]);
           }
         } else {

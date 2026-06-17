@@ -154,7 +154,7 @@ export default function SuperAdminCharts() {
           <ResponsiveContainer width="100%" height={220}>
             <PieChart>
               <Pie data={categoryFinal} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={3} dataKey="value">
-                {categoryFinal.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                {categoryFinal.map((entry: any, i: number) => <Cell key={i} fill={entry.color} />)}
               </Pie>
               <Tooltip contentStyle={{ borderRadius: "8px", border: "1px solid hsl(var(--border))", background: "hsl(var(--card))", color: "hsl(var(--foreground))" }} />
               <Legend iconSize={8} wrapperStyle={{ fontSize: "11px" }} />
