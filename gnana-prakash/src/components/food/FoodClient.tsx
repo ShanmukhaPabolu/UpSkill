@@ -43,11 +43,12 @@ export default function FoodClient() {
   const { data: foodRecords, isLoading: isLoadingFoodRecords, refetch: refetchFoodRecords } = useQuery({
     queryKey: ["food_records", programId],
     queryFn: async () => {
-      const url = programId ? `/api/food?program=${programId}` : "/api/food";
-      const res = await fetch(url);
+      if (!programId) return [];
+      const res = await fetch(`/api/food?program=${programId}`);
       if (!res.ok) throw new Error("Failed to fetch food records");
       return res.json();
-    }
+    },
+    enabled: !!programId
   });
 
   const handleChange = (mealKey: string, field: string, value: string | number) => {
@@ -60,7 +61,7 @@ export default function FoodClient() {
     try {
       const res = await fetch("/api/food", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ program: programId, date, dayNumber, ...meals }),
+        body: JSON.stringify({ program: programId, date, dayNumber: 1, ...meals }),
       });
       if (res.ok) {
         setSaved(true);
@@ -90,16 +91,6 @@ export default function FoodClient() {
                 ))}
               </select>
               <Input type="date" className="h-9 text-sm" value={date} onChange={e => setDate(e.target.value)} />
-              <Input 
-                type="text" 
-                placeholder="Day #" 
-                className="h-9 w-20 text-sm" 
-                value={dayNumber === 0 ? "" : dayNumber} 
-                onChange={e => {
-                  const val = e.target.value.replace(/[^0-9]/g, "");
-                  setDayNumber(val === "" ? 0 : Number(val));
-                }} 
-              />
             </div>
           </div>
         </CardHeader>
@@ -176,9 +167,13 @@ export default function FoodClient() {
             <div className="flex justify-center py-6">
               <Loader2 className="w-6 h-6 animate-spin text-brand-600" />
             </div>
+          ) : !programId ? (
+            <div className="text-center py-8 text-muted-foreground border border-dashed rounded-xl">
+              Please select a program from the dropdown above to view its saved food records.
+            </div>
           ) : !foodRecords || foodRecords.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground border border-dashed rounded-xl">
-              No food records saved yet for this selection.
+              No food records saved yet for this program.
             </div>
           ) : (
             <div className="overflow-x-auto border rounded-xl bg-white shadow-sm">
@@ -186,8 +181,6 @@ export default function FoodClient() {
                 <TableHeader className="bg-slate-50 border-b">
                   <TableRow>
                     <TableHead className="w-24 font-bold text-slate-700">Date</TableHead>
-                    <TableHead className="font-bold text-slate-700">Program Name</TableHead>
-                    <TableHead className="w-16 text-center font-bold text-slate-700">Day #</TableHead>
                     {MEALS.map(m => (
                       <TableHead key={m.key} className="text-center font-bold text-slate-700">
                         <div className="flex flex-col items-center">
@@ -209,12 +202,6 @@ export default function FoodClient() {
                       <TableRow key={record._id} className="hover:bg-slate-50/50">
                         <TableCell className="font-semibold text-slate-800">
                           {formatDate(record.date)}
-                        </TableCell>
-                        <TableCell className="font-semibold text-slate-700 truncate max-w-[150px]" title={record.program?.programName || "—"}>
-                          {record.program?.programName || "—"}
-                        </TableCell>
-                        <TableCell className="text-center font-bold text-slate-600">
-                          {record.dayNumber}
                         </TableCell>
                         {MEALS.map(m => {
                           const mealData = record[m.key] || { quantity: 0, participants: 0 };
