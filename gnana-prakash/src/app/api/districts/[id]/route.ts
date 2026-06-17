@@ -8,7 +8,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const { id } = await params;
     const token = await getAuthToken(req);
     const session = token ? { user: token } : null;
-    if (!session || (session.user as any).role !== "SUPER_ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!session || !["SUPER_ADMIN", "STATE_ADMIN"].includes((session.user as any).role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     await connectDB();
     const body = await req.json();
     const district = await District.findByIdAndUpdate(id, body, { new: true });
@@ -24,7 +24,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const { id } = await params;
     const token = await getAuthToken(req);
     const session = token ? { user: token } : null;
-    if (!session || (session.user as any).role !== "SUPER_ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!session || !["SUPER_ADMIN", "STATE_ADMIN"].includes((session.user as any).role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     await connectDB();
     const district = await District.findByIdAndDelete(id);
     if (!district) return NextResponse.json({ error: "Not found" }, { status: 404 });

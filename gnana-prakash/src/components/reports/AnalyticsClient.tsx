@@ -108,14 +108,12 @@ export default function AnalyticsClient() {
           <Card>
             <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground font-semibold">Participant Category Distribution</CardTitle></CardHeader>
             <CardContent className="flex flex-col sm:flex-row items-center gap-6">
-              <ResponsiveContainer width={220} height={220}>
-                <PieChart>
-                  <Pie data={CATEGORY_PIE} cx="50%" cy="50%" innerRadius={55} outerRadius={90} paddingAngle={3} dataKey="value">
-                    {CATEGORY_PIE.map((e, i) => <Cell key={i} fill={e.color} />)}
-                  </Pie>
-                  <Tooltip contentStyle={TOOLTIP_STYLE} />
-                </PieChart>
-              </ResponsiveContainer>
+              <PieChart width={220} height={220}>
+                <Pie data={CATEGORY_PIE} cx="50%" cy="50%" innerRadius={55} outerRadius={90} paddingAngle={3} dataKey="value">
+                  {CATEGORY_PIE.map((e, i) => <Cell key={i} fill={e.color} />)}
+                </Pie>
+                <Tooltip contentStyle={TOOLTIP_STYLE} />
+              </PieChart>
               <div className="grid grid-cols-2 gap-3 flex-1">
                 {CATEGORY_PIE.map(e => (
                   <div key={e.name} className="flex items-center gap-2 p-3 rounded-xl border">

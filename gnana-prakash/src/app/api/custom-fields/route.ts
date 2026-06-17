@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
   try {
     const token = await getAuthToken(req);
     const session = token ? { user: token } : null;
-    if (!session || (session.user as any).role !== "SUPER_ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!session || !["SUPER_ADMIN", "STATE_ADMIN"].includes((session.user as any).role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     await connectDB();
     const body = await req.json();
     const field = await CustomField.create({ ...body, createdBy: (session.user as any).id });

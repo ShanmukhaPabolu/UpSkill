@@ -33,7 +33,7 @@ export async function getAuthToken(req: NextRequest): Promise<JWT | null> {
       salt: tokenCookie.name,
     });
     if (token && token.sub) {
-      (token as any).id = token.sub;
+      token.id = token.sub;
     }
     return token;
   } catch {
