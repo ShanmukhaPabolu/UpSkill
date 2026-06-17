@@ -35,6 +35,8 @@ const flattenObject = (obj: any, prefix = ""): any => {
   }, {});
 };
 
+import { toast } from "@/lib/hooks/use-toast";
+
 export default function ReportsClient() {
   const [generating, setGenerating] = useState<string | null>(null);
   const [filters, setFilters] = useState({ programId: "", district: "", from: "", to: "" });
@@ -80,18 +82,19 @@ export default function ReportsClient() {
 
   const exportExcel = (data: any[], type: string) => {
     if (!data || data.length === 0) {
-      alert("No data found for the selected filters.");
+      toast({ title: "No Data Found", description: "No data matches the selected filters.", variant: "destructive" });
       return;
     }
     const ws = XLSX.utils.json_to_sheet(data.map(item => flattenObject(item)));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Report");
     XLSX.writeFile(wb, `${type}-report-${Date.now()}.xlsx`);
+    toast({ title: "Excel Exported", description: `Successfully exported ${type} report to Excel.`, variant: "success" });
   };
 
   const exportPdf = (data: any[], type: string) => {
     if (!data || data.length === 0) {
-      alert("No data found for the selected filters.");
+      toast({ title: "No Data Found", description: "No data matches the selected filters.", variant: "destructive" });
       return;
     }
     const doc = new jsPDF();
@@ -110,6 +113,7 @@ export default function ReportsClient() {
       horizontalPageBreak: true
     });
     doc.save(`${type}-report-${Date.now()}.pdf`);
+    toast({ title: "PDF Exported", description: `Successfully exported ${type} report to PDF.`, variant: "success" });
   };
 
   const generate = async (type: string, format: "pdf" | "excel") => {
@@ -122,10 +126,11 @@ export default function ReportsClient() {
         if (format === "excel") exportExcel(data, type);
         else exportPdf(data, type);
       } else {
-        alert("Failed to generate report");
+        const errJson = await res.json().catch(() => ({}));
+        toast({ title: "Generation Failed", description: errJson.error || "Failed to generate the report.", variant: "destructive" });
       }
-    } catch (e) {
-      alert("An error occurred while generating the report");
+    } catch (e: any) {
+      toast({ title: "Generation Error", description: e.message || "An error occurred while generating the report.", variant: "destructive" });
     } finally {
       setGenerating(null);
     }

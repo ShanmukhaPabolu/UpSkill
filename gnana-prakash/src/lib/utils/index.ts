@@ -84,7 +84,15 @@ export const PARTICIPANT_CATEGORIES = [
 ];
 
 export const PHOTO_CATEGORIES = [
-  "VENUE","INAUGURATION","CLASSROOM","BREAKFAST","TEA_BREAK","LUNCH","SNACKS","DINNER","ACCOMMODATION","VALEDICTORY"
+  "Food Distribution",
+  "Inauguration",
+  "Classes",
+  "Residency Programs",
+  "Workshops",
+  "Events",
+  "Awareness Programs",
+  "Training Programs",
+  "Other Activities"
 ];
 
 export const VIDEO_CATEGORIES = [

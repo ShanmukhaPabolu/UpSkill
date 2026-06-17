@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { toast } from "@/lib/hooks/use-toast";
 import { DASHBOARD_ROUTES } from "@/lib/auth/rbac";
 import { UserRole } from "@/types";
 import { useRouter } from "next/navigation";
@@ -35,11 +36,14 @@ export default function LoginForm() {
       const result = await res.json();
 
       if (!res.ok || result.error) {
-        setError(result.error || "Invalid credentials. Please check your email and password.");
+        const errMsg = result.error || "Invalid credentials. Please check your email and password.";
+        setError(errMsg);
+        toast({ title: "Login Failed", description: errMsg, variant: "destructive" });
         return;
       }
 
       // Login successful — the cookie is already set by the server
+      toast({ title: "Login Successful", description: `Welcome back, ${result.user?.name || "User"}!`, variant: "success" });
       if (result.user?.role) {
         const role = result.user.role as UserRole;
         const dashboardUrl = DASHBOARD_ROUTES[role] || "/";
@@ -48,9 +52,11 @@ export default function LoginForm() {
         router.push("/");
       }
       router.refresh();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Login error:", err);
-      setError("Network error. Please check your connection and try again.");
+      const errMsg = err.message || "Network error. Please check your connection and try again.";
+      setError(errMsg);
+      toast({ title: "Login Error", description: errMsg, variant: "destructive" });
     } finally {
       setLoading(false);
     }

@@ -10,21 +10,47 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const token = await getAuthToken(req);
     const session = token ? { user: token } : null;
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const role = (session.user as any).role;
-    if (!["SUPER_ADMIN", "STATE_ADMIN", "DISTRICT_ADMIN"].includes(role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    // Strict Role Permission: Only the Super Admin is permitted to approve/reject requests
+    if (role !== "SUPER_ADMIN") {
+      return NextResponse.json({ error: "Forbidden. Only Super Admin can perform review actions." }, { status: 403 });
+    }
+
     await connectDB();
     const { action, remarks } = await req.json();
-    const status = action === "approve" ? "APPROVED" : "REJECTED";
-    const photo = await Photo.findByIdAndUpdate(id, {
+    const status = action === "approve" ? "Approved" : "Rejected";
+
+    const updateFields: Record<string, any> = {
       status,
       approvedBy: (session.user as any).id,
       approvalDate: new Date(),
-      remarks,
-    }, { new: true });
+      remarks: remarks || "",
+      rejectionReason: remarks || ""
+    };
+
+    const photo = await Photo.findByIdAndUpdate(id, updateFields, { new: true });
     if (!photo) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    await AuditLog.create({ user: (session.user as any).id, role, action: `MEDIA_${status}`, module: "PHOTO", resourceId: id });
-    return NextResponse.json(photo);
-  } catch {
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+
+    await AuditLog.create({ 
+      user: (session.user as any).id, 
+      role, 
+      action: `MEDIA_${status.toUpperCase()}`, 
+      module: "PHOTO", 
+      resourceId: id 
+    });
+
+    const successMessage = action === "approve" 
+      ? "Image request approved successfully." 
+      : "Image request rejected successfully.";
+
+    return NextResponse.json({ 
+      success: true, 
+      message: successMessage, 
+      data: photo 
+    });
+  } catch (err: any) {
+    console.error("POST approve error:", err);
+    return NextResponse.json({ error: "Server error: " + err.message }, { status: 500 });
   }
 }

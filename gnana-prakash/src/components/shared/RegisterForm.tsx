@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+import { toast } from "@/lib/hooks/use-toast";
+
 export default function RegisterForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -39,12 +41,17 @@ export default function RegisterForm() {
       
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Registration failed.");
+        const errMsg = data.error || "Registration failed.";
+        setError(errMsg);
+        toast({ title: "Registration Failed", description: errMsg, variant: "destructive" });
       } else {
+        toast({ title: "Registration Request Submitted", description: "Your access request has been sent for admin verification.", variant: "success" });
         setSuccess(true);
       }
-    } catch (err) {
-      setError("An unexpected error occurred.");
+    } catch (err: any) {
+      const errMsg = err.message || "An unexpected error occurred.";
+      setError(errMsg);
+      toast({ title: "Registration Error", description: errMsg, variant: "destructive" });
     } finally {
       setLoading(false);
     }

@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthToken } from "@/lib/auth/getAuthToken";
 import connectDB from "@/lib/db/mongoose";
 import Program from "@/models/Program";
+import District from "@/models/District";
+import Mandal from "@/models/Mandal";
+import Venue from "@/models/Venue";
+import User from "@/models/User";
 import AuditLog from "@/models/AuditLog";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -14,7 +18,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const program = await Program.findById(id).populate("district mandal venue createdBy").lean();
     if (!program) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json(program);
-  } catch {
+  } catch (error) {
+    console.error("Error in GET /api/programs/[id]:", error);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
@@ -31,7 +36,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (!program) return NextResponse.json({ error: "Not found" }, { status: 404 });
     await AuditLog.create({ user: (session.user as any).id, role: (session.user as any).role, action: "UPDATE", module: "PROGRAM", resourceId: id });
     return NextResponse.json(program);
-  } catch {
+  } catch (error) {
+    console.error("Error in PUT /api/programs/[id]:", error);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
@@ -48,7 +54,8 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     await Program.findByIdAndDelete(id);
     await AuditLog.create({ user: (session.user as any).id, role, action: "DELETE", module: "PROGRAM", resourceId: id });
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (error) {
+    console.error("Error in DELETE /api/programs/[id]:", error);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }

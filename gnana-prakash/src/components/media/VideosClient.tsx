@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDate, formatFileSize, VIDEO_CATEGORIES } from "@/lib/utils";
 
+import { toast } from "@/lib/hooks/use-toast";
+
 interface SessionUser { role: string; [key: string]: any; }
 
 export default function VideosClient() {
@@ -32,18 +34,28 @@ export default function VideosClient() {
   });
 
   const onDrop = useCallback(async (files: File[]) => {
-    if (!uploadData.title) return alert("Please enter a video title first");
-    setUploading(true);
-    for (const file of files) {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("title", uploadData.title);
-      formData.append("category", uploadData.category);
-      if (uploadData.program) formData.append("program", uploadData.program);
-      await fetch("/api/videos", { method: "POST", body: formData });
+    if (!uploadData.title) {
+      toast({ title: "Title Required", description: "Please enter a video title first.", variant: "destructive" });
+      return;
     }
-    setUploading(false);
-    qc.invalidateQueries({ queryKey: ["videos"] });
+    setUploading(true);
+    try {
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("title", uploadData.title);
+        formData.append("category", uploadData.category);
+        if (uploadData.program) formData.append("program", uploadData.program);
+        const res = await fetch("/api/videos", { method: "POST", body: formData });
+        if (!res.ok) throw new Error("Upload failed");
+      }
+      toast({ title: "Upload Successful", description: "Videos have been uploaded successfully.", variant: "success" });
+    } catch (err: any) {
+      toast({ title: "Upload Failed", description: err.message || "An error occurred during video upload.", variant: "destructive" });
+    } finally {
+      setUploading(false);
+      qc.invalidateQueries({ queryKey: ["videos"] });
+    }
   }, [uploadData, qc]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -51,8 +63,14 @@ export default function VideosClient() {
   });
 
   const approve = async (id: string, action: string) => {
-    await fetch(`/api/videos/${id}/approve`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) });
-    qc.invalidateQueries({ queryKey: ["videos"] });
+    try {
+      const res = await fetch(`/api/videos/${id}/approve`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) });
+      if (!res.ok) throw new Error("Failed to update status");
+      toast({ title: "Status Updated", description: `Video has been ${action === "approve" ? "approved" : "rejected"} successfully.`, variant: "success" });
+      qc.invalidateQueries({ queryKey: ["videos"] });
+    } catch (err: any) {
+      toast({ title: "Action Failed", description: err.message || "Failed to update video status.", variant: "destructive" });
+    }
   };
 
   const STATUS_BADGE: Record<string, string> = { APPROVED: "success", PENDING: "warning", REJECTED: "destructive" };
